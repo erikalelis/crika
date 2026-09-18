@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crika – Inteligencia para tu celular</title>
+<meta name="description" content="Crika ordena tu celular con inteligencia: fotos duplicadas, recuerdos protegidos y audios de WhatsApp transcriptos con respuestas sugeridas.">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0e16" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="icons/icon-rounded.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Crika">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+<style>
+/* ==================================================
+   TOKENS
+   ================================================== */
+:root {
+  --bg: #f5f5fa;
+  --surface: #ffffff;
+  --surface-2: #f0f0f7;
+  --text: #171722;
+  --muted: #666780;
+  --line: #e7e7f0;
+  --wave-off: #d8d6ee;
+
+  --primary: #5b4fe5;
+  --primary-2: #7c5cff;
+  --primary-soft: #efedff;
+  --primary-ink: #4a3fd0;
+
+  --ok: #067a55;      --ok-soft: #dcf7ec;
+  --warn: #9a5b00;    --warn-soft: #fff0d0;
+  --bad: #d12a3a;     --bad-soft: #ffe3e6;
+
+  --hero: linear-gradient(140deg, #7c5cff 0%, #5b4fe5 52%, #3a2fb8 100%);
+
+  --shadow-sm: 0 1px 2px rgba(23,23,34,.04), 0 2px 8px rgba(23,23,34,.04);
+  --shadow-md: 0 10px 28px rgba(40,30,120,.09);
+  --shadow-lg: 0 20px 44px rgba(91,79,229,.30);
+
+  --r-sm: 12px; --r-md: 20px; --r-lg: 28px;
+  --nav-h: 68px;
+  --sidebar-w: 268px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0e16;
+    --surface: #171722;
+    --surface-2: #202030;
+    --text: #f3f3fa;
+    --muted: #9c9db5;
+    --line: #2a2a3c;
+    --wave-off: #3b3b55;
+    --primary-soft: rgba(124,92,255,.20);
+    --primary-ink: #b8adff;
+    --ok: #3ddba0;   --ok-soft: rgba(16,185,129,.16);
+    --warn: #ffc35c; --warn-soft: rgba(245,158,11,.16);
+    --bad: #ff7a86;  --bad-soft: rgba(239,68,68,.16);
+    --shadow-sm: none;
+    --shadow-md: 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+
+/* ==================================================
+   BASE
+   ================================================== */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  height: 100vh; height: 100dvh;
+  display: flex;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { letter-spacing: -0.025em; line-height: 1.2; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
+:focus-visible { outline: 3px solid var(--primary-2); outline-offset: 2px; border-radius: 10px; }
+
+.ic { width: 1.3em; height: 1.3em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.ic-fill { fill: currentColor; stroke: none; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* ==================================================
+   LAYOUT
+   ================================================== */
+.app { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; }
+.main {
+  flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+  padding: calc(env(safe-area-inset-top) + 14px) 18px calc(var(--nav-h) + 44px + env(safe-area-inset-bottom));
+}
+.main::-webkit-scrollbar { display: none; }
+.view { display: none; max-width: 980px; margin: 0 auto; }
+.view.active { display: block; animation: rise .35s ease both; }
+
+/* Top bar (mobile) */
+.topbar { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 20px; }
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand-mark { width: 40px; height: 40px; border-radius: 13px; box-shadow: 0 8px 16px rgba(91,79,229,.35); }
+.brand-name { font-weight: 800; letter-spacing: .16em; font-size: 1.05rem; }
+.icon-btn {
+  position: relative; width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm);
+}
+.count-badge {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 999px; background: linear-gradient(135deg, #ff8fbf, #ff5d8f); color: #fff;
+  font-size: .7rem; font-weight: 800; display: grid; place-items: center; border: 2px solid var(--bg);
+}
+
+/* Bottom nav (mobile) */
+.nav {
+  position: fixed; z-index: 50; left: 12px; right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  height: var(--nav-h); padding: 6px;
+  display: flex; justify-content: space-between; gap: 2px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid var(--line); border-radius: 26px;
+  box-shadow: 0 14px 34px rgba(30,20,100,.16);
+  max-width: 560px; margin: 0 auto;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border-radius: 20px; color: var(--muted); font-size: .68rem; font-weight: 600; text-align: center;
+  transition: color .2s, background .2s;
+}
+.nav-item .ic { width: 23px; height: 23px; transition: transform .2s; }
+.nav-item[aria-current="page"] { color: var(--primary-ink); background: var(--primary-soft); }
+.nav-item[aria-current="page"] .ic { transform: translateY(-1px) scale(1.06); }
+
+/* Sidebar (desktop) */
+.sidebar { display: none; }
+
+/* ==================================================
+   COMPONENTS
+   ================================================== */
+.page-head { margin-bottom: 20px; }
+.page-head h2 { font-size: 1.7rem; }
+.page-head h1 { font-size: 1.5rem; }
+.page-head p { color: var(--muted); margin-top: 4px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 20px; box-shadow: var(--shadow-sm); margin-bottom: 14px; position: relative;
+}
+.card.flush { padding: 0; overflow: hidden; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 20px; border-radius: 999px; font-weight: 650; font-size: .95rem;
+  border: 1px solid transparent; transition: transform .15s, box-shadow .2s, background .2s; white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: linear-gradient(135deg, var(--primary-2), var(--primary)); color: #fff; box-shadow: 0 10px 22px rgba(91,79,229,.30); }
+.btn-soft { background: var(--primary-soft); color: var(--primary-ink); }
+.btn-ghost { border-color: var(--line); background: var(--surface); }
+.btn-danger { color: var(--bad); }
+.btn-sm { min-height: 36px; padding: 0 14px; font-size: .85rem; }
+.btn-block { width: 100%; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px;
+  font-size: .74rem; font-weight: 700; white-space: nowrap;
+}
+.badge-primary { background: var(--primary-soft); color: var(--primary-ink); }
+.badge-ok { background: var(--ok-soft); color: var(--ok); }
+.badge-warn { background: var(--warn-soft); color: var(--warn); }
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 1.4s infinite; }
+
+/* Tone tiles */
+.tile { width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; flex: none; }
+.tile .ic { width: 22px; height: 22px; }
+.tone-violet { background: var(--primary-soft); color: var(--primary-ink); }
+.tone-green  { background: rgba(37,196,138,.16); color: #0f9d6a; }
+.tone-pink   { background: rgba(255,143,191,.20); color: #d23a86; }
+.tone-amber  { background: rgba(255,195,107,.24); color: #a86300; }
+.tone-blue   { background: rgba(56,140,255,.16); color: #2a6fd6; }
+@media (prefers-color-scheme: dark) {
+  .tone-green { color: #4fe0a8; } .tone-pink { color: #ff9cc7; } .tone-amber { color: #ffcb7d; } .tone-blue { color: #79b1ff; }
+}
+
+/* Row lists */
+.row { display: flex; align-items: center; gap: 14px; padding: 15px 18px; width: 100%; }
+.row + .row { border-top: 1px solid var(--line); }
+.row-main { flex: 1; min-width: 0; }
+.row-main h4 { font-size: .95rem; font-weight: 650; letter-spacing: -.01em; }
+.row-main p { font-size: .8rem; color: var(--muted); }
+button.row { transition: background .15s; }
+button.row:active { background: var(--surface-2); }
+
+.wide-only { display: none; }
+@media (min-width: 900px) { .wide-only { display: inline; } }
+.section-title { font-size: 1.05rem; margin: 22px 0 12px; display: flex; align-items: center; justify-content: space-between; }
+
+.notice {
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--r-md);
+  background: var(--primary-soft); color: var(--text); font-size: .88rem; margin-bottom: 18px;
+}
+.notice .ic { color: var(--primary-ink); width: 22px; height: 22px; margin-top: 1px; }
+.notice b { display: block; font-size: .92rem; }
+.notice span { color: var(--muted); }
+
+/* ---------- Install banner ---------- */
+.install {
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; margin-bottom: 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-md);
+}
+.install img { width: 46px; height: 46px; border-radius: 14px; flex: none; }
+.install div { flex: 1; min-width: 0; line-height: 1.3; }
+.install b { display: block; font-size: .95rem; }
+.install span { font-size: .8rem; color: var(--muted); }
+.x-btn { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); flex: none; }
+
+/* ---------- Home ---------- */
+.home-grid { display: grid; gap: 14px; }
+.home-grid > * { margin-bottom: 0; }
+
+.hero {
+  position: relative; overflow: hidden; color: #fff; background: var(--hero);
+  border-radius: var(--r-lg); padding: 22px; box-shadow: var(--shadow-lg);
+}
+.hero::before {
+  content: ""; position: absolute; top: -90px; right: -70px; width: 300px; height: 300px; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,255,255,.30), transparent 65%);
+}
+.hero::after {
+  content: ""; position: absolute; bottom: -120px; left: -60px; width: 260px; height: 260px; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,143,191,.28), transparent 65%);
+}
+.hero > * { position: relative; z-index: 1; }
+.hero-top { display: flex; align-items: center; gap: 18px; }
+.ring { position: relative; width: 116px; height: 116px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { fill: none; stroke: rgba(255,255,255,.22); stroke-width: 10; }
+.ring .bar { fill: none; stroke: #fff; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1); }
+.ring-label { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.ring-label b { font-size: 1.85rem; line-height: 1; letter-spacing: -.04em; }
+.ring-label small { font-size: .68rem; opacity: .85; margin-top: 2px; }
+.hero-info small { font-size: .82rem; opacity: .85; display: block; }
+.hero-info h2 { font-size: 1.75rem; letter-spacing: -.04em; margin: 2px 0; }
+.hero-recover { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.2); }
+.hero-recover small { font-size: .8rem; opacity: .85; }
+.hero-recover .big { font-size: 1.85rem; font-weight: 800; letter-spacing: -.04em; line-height: 1.15; }
+.btn-hero { margin-top: 16px; background: #fff; color: #3f34c8; box-shadow: 0 10px 22px rgba(20,10,90,.28); }
+.spinner { width: 18px; height: 18px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+
+.stat { display: flex; align-items: center; gap: 14px; width: 100%; transition: transform .15s; }
+.stat:active { transform: scale(.985); }
+.stat .tile { width: 50px; height: 50px; border-radius: 17px; }
+.stat-body { flex: 1; min-width: 0; }
+.stat-body small { color: var(--muted); font-size: .82rem; display: block; }
+.stat-body b { font-size: 1.7rem; letter-spacing: -.04em; line-height: 1.15; display: block; }
+.stat-body em { font-style: normal; font-size: .78rem; color: var(--muted); display: block; }
+.stat-note { font-size: .82rem; color: var(--muted); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+.stack { display: flex; gap: 3px; height: 14px; border-radius: 999px; overflow: hidden; background: var(--surface-2); margin: 14px 0 16px; }
+.stack i { display: block; transition: flex-basis .9s cubic-bezier(.2,.8,.2,1); border-radius: 3px; min-width: 0; }
+.stack i.free { flex: 1 1 0; background: var(--surface-2); }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+.legend div { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
+.legend i { width: 10px; height: 10px; border-radius: 4px; flex: none; }
+.legend span { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* ---------- Limpieza ---------- */
+.clean-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.clean-total small { color: var(--muted); }
+.clean-total b { font-size: 1.9rem; letter-spacing: -.04em; color: var(--ok); }
+.multibar { display: flex; gap: 3px; height: 12px; margin: 14px 0 10px; }
+.multibar i { display: block; border-radius: 6px; transition: opacity .4s, filter .4s; }
+.multibar i.done { filter: grayscale(1); opacity: .25; }
+.done-row .row-main h4 { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
+
+/* ---------- Recuerdos ---------- */
+.mem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mem { position: relative; padding: 0; overflow: hidden; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm); text-align: center; transition: transform .15s; }
+.mem:active { transform: scale(.98); }
+.mem-cover { height: 96px; display: grid; place-items: center; font-size: 2.6rem; }
+.mem-info { padding: 12px 10px 16px; }
+.mem-info h4 { font-size: .95rem; }
+.mem-info p { font-size: .78rem; color: var(--muted); }
+.mem-shield { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.92); color: #067a55; display: grid; place-items: center; box-shadow: 0 4px 10px rgba(0,0,0,.14); }
+.mem-shield .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.g1 { background: linear-gradient(135deg, #ffd0e4, #ff8fbf); }
+.g2 { background: linear-gradient(135deg, #fff0c2, #ffc36b); }
+.g3 { background: linear-gradient(135deg, #cfe3ff, #7fb1ff); }
+.g4 { background: linear-gradient(135deg, #d9d3ff, #9a86ff); }
+
+/* ---------- Mensajes ---------- */
+.chat { padding: 0; overflow: hidden; }
+.chat-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.avatar { flex: none; width: 42px; height: 42px; aspect-ratio: 1; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; background: linear-gradient(135deg, #3ddc97, #16a765); flex: none; }
+.chat-head > div:not(.avatar) { flex: 1; min-width: 0; line-height: 1.3; }
+.chat-head b { font-size: .95rem; }
+.chat-head small { display: block; font-size: .78rem; color: var(--muted); }
+.chat-body { padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.audio {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; max-width: 100%;
+  background: var(--surface-2); border-radius: 20px 20px 20px 6px;
+}
+.play { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; flex: none; color: #fff; background: linear-gradient(135deg, var(--primary-2), var(--primary)); box-shadow: 0 6px 14px rgba(91,79,229,.35); }
+.play .ic { width: 18px; height: 18px; }
+.wave { flex: 1; display: flex; align-items: center; gap: 3px; height: 34px; min-width: 0; }
+.wave i { flex: 1; max-width: 4px; min-width: 2px; border-radius: 3px; background: var(--wave-off); height: var(--h); transition: background .15s; }
+.wave i.on { background: var(--primary); }
+.audio time { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+.insight { display: grid; gap: 4px; padding-left: 14px; border-left: 3px solid var(--primary-2); }
+.insight.ok { border-left-color: #25c48a; }
+.insight h5 { display: flex; align-items: center; gap: 6px; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--primary-ink); }
+.insight.ok h5 { color: var(--ok); }
+.insight h5 .ic { width: 15px; height: 15px; }
+.insight p { font-size: .92rem; }
+.insight .quote { color: var(--muted); font-style: italic; }
+.reply { background: var(--primary-soft); border-radius: var(--r-md); padding: 16px; }
+.reply h5 { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--primary-ink); margin-bottom: 8px; }
+.reply-text { font-weight: 550; font-size: .98rem; border-radius: 10px; padding: 2px 4px; margin: 0 -4px 14px; }
+.reply-text.editing { background: var(--surface); outline: 2px solid var(--primary-2); padding: 8px; margin: 0 0 14px; }
+.reply-actions { display: flex; gap: 8px; }
+.reply-actions .btn { flex: 1 1 0; min-width: 0; padding: 0 8px; gap: 6px; min-height: 42px; font-size: .88rem; }
+.reply-actions .btn-danger { flex: 0 0 auto; padding: 0 10px; }
+.chat.gone { opacity: 0; transform: scale(.96); transition: all .3s ease; }
+.empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+.empty .art { width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 24px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-ink); }
+.empty .art .ic { width: 34px; height: 34px; }
+.empty h3 { color: var(--text); font-size: 1.1rem; margin-bottom: 4px; }
+
+/* ---------- Archivos ---------- */
+.search { position: relative; margin-bottom: 14px; }
+.search .ic { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.search input {
+  width: 100%; min-height: 48px; padding: 0 16px 0 46px; border-radius: 999px; font: inherit; font-size: 16px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text); outline: none; box-shadow: var(--shadow-sm);
+}
+.search input:focus { border-color: var(--primary-2); box-shadow: 0 0 0 4px var(--primary-soft); }
+.search input::placeholder { color: var(--muted); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 14px; scrollbar-width: none; margin: 0 -18px; padding-inline: 18px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { padding: 8px 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: .86rem; font-weight: 600; color: var(--muted); white-space: nowrap; transition: all .2s; }
+.chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+/* ---------- Sheet ---------- */
+.sheet-back {
+  position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(10,8,30,.5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+.sheet-back.open { opacity: 1; pointer-events: auto; }
+.sheet {
+  width: 100%; max-width: 520px; max-height: 90dvh; overflow-y: auto; outline: none;
+  background: var(--surface); border-radius: 28px 28px 0 0; padding: 10px 22px calc(24px + env(safe-area-inset-bottom));
+  transform: translateY(100%); transition: transform .32s cubic-bezier(.2,.9,.3,1);
+}
+.sheet-back.open .sheet { transform: none; }
+.grab { width: 44px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 16px; }
+.sheet h3 { font-size: 1.25rem; }
+.sheet .sub { color: var(--muted); font-size: .9rem; margin: 2px 0 16px; }
+.thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+.thumb { aspect-ratio: 1; border-radius: 16px; display: grid; place-items: center; color: #fff; }
+.thumb .ic { width: 26px; height: 26px; opacity: .95; }
+.sheet-actions { display: flex; gap: 10px; margin-top: 18px; }
+.sheet-actions .btn { flex: 1; }
+.seg { display: flex; background: var(--surface-2); padding: 4px; border-radius: 999px; margin: 6px 0 18px; }
+.seg button { flex: 1; text-align: center; padding: 9px 6px; border-radius: 999px; font-size: .85rem; font-weight: 650; color: var(--muted); }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.steps { list-style: none; counter-reset: s; display: grid; gap: 14px; }
+.steps li { counter-increment: s; display: flex; gap: 14px; align-items: flex-start; font-size: .95rem; }
+.steps li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-ink); font-weight: 800; font-size: .85rem; }
+.steps .ic { width: 1.15em; height: 1.15em; vertical-align: -.2em; color: var(--primary-ink); }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; z-index: 100; left: 50%; top: calc(env(safe-area-inset-top) + 14px);
+  transform: translate(-50%, -140%); opacity: 0; pointer-events: none;
+  transition: transform .35s cubic-bezier(.2,1.2,.3,1), opacity .25s;
+  display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 32px);
+  background: var(--text); color: var(--bg); padding: 12px 20px; border-radius: 22px; font-size: .9rem; font-weight: 600;
+  box-shadow: 0 14px 30px rgba(0,0,0,.25);
+}
+.toast.show { transform: translate(-50%, 0); opacity: 1; }
+.toast .ic { color: #3ddba0; }
+
+/* ==================================================
+   DESKTOP
+   ================================================== */
+@media (min-width: 900px) {
+  .nav, .topbar { display: none; }
+  .main { padding: 44px 52px 60px; }
+
+  .sidebar {
+    display: flex; flex-direction: column; width: var(--sidebar-w); flex: none; height: 100%;
+    background: var(--surface); border-right: 1px solid var(--line); padding: 30px 18px 22px;
+  }
+  .sidebar .brand { padding: 0 10px; margin-bottom: 34px; }
+  .side-menu { display: grid; gap: 4px; }
+  .side-item {
+    display: flex; align-items: center; gap: 13px; padding: 12px 14px; border-radius: 14px;
+    color: var(--muted); font-weight: 600; transition: background .15s, color .15s;
+  }
+  .side-item:hover { background: var(--surface-2); color: var(--text); }
+  .side-item[aria-current="page"] { background: var(--primary-soft); color: var(--primary-ink); }
+  .side-item .count-badge { position: static; margin-left: auto; border-color: var(--surface); }
+  .side-foot { margin-top: auto; }
+  .side-install { display: grid; gap: 10px; padding: 16px; border-radius: var(--r-md); background: var(--hero); color: #fff; }
+  .side-install b { font-size: .95rem; }
+  .side-install span { font-size: .8rem; opacity: .85; line-height: 1.35; display: block; }
+  .side-install .btn { background: #fff; color: #3f34c8; }
+
+  .install { display: none !important; }
+  .home-grid { grid-template-columns: 1.35fr 1fr; grid-auto-rows: auto; align-items: stretch; }
+  .hero { grid-row: span 2; padding: 30px; display: flex; flex-direction: column; justify-content: space-between; }
+  .ring { width: 140px; height: 140px; }
+  .hero-recover .big { font-size: 2.3rem; }
+  .home-grid .wide { grid-column: 1 / -1; }
+  .mem-grid { grid-template-columns: repeat(4, 1fr); }
+  .sheet-back { align-items: center; }
+  .sheet { border-radius: 28px; padding-bottom: 24px; transform: translateY(24px) scale(.97); opacity: 0; transition: transform .28s, opacity .28s; }
+  .sheet-back.open .sheet { transform: none; opacity: 1; }
+  .grab { display: none; }
+  .chips { margin: 0; padding-inline: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ==================================================
+   V2 — wordmark, escaneo real, audios reales
+   ================================================== */
+:root { --wm-a: #8f6dff; --wm-b: #4338ca; }
+@media (prefers-color-scheme: dark) { :root { --wm-a: #c2b6ff; --wm-b: #8f7bff; } }
+.wordmark { height: 24px; aspect-ratio: 308 / 100; display: block; flex: none; }
+.sidebar .wordmark { height: 28px; }
+a.btn { text-decoration: none; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hint { font-size: .8rem; color: var(--muted); margin-top: 10px; }
+.count-badge[hidden] { display: none; }
+
+/* home hero */
+.hero-hint { font-size: .8rem; opacity: .85; margin-top: 10px; text-align: center; }
+.how { display: grid; gap: 18px; }
+.how h4 { font-size: .95rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.how .steps { gap: 10px; }
+.how .steps li { font-size: .88rem; }
+.how .steps li::before { width: 24px; height: 24px; font-size: .78rem; }
+@media (min-width: 900px) { .how { grid-template-columns: 1fr 1fr; gap: 32px; } }
+
+/* limpieza: escaneo */
+.scan-top { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.scan-top h3 { font-size: 1.05rem; }
+.scan-top p { font-size: .85rem; color: var(--muted); margin-top: 2px; }
+.seg.tight { margin: 0 0 14px; }
+.progress { margin-top: 16px; }
+.progress-bar { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.progress-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--primary-2), #ff8fbf); border-radius: 999px; transition: width .2s; }
+.progress small { display: block; margin-top: 8px; color: var(--muted); font-size: .82rem; }
+
+.summary { display: grid; gap: 14px; }
+.summary-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.summary small { color: var(--muted); font-size: .82rem; }
+.summary .big { display: block; font-size: 2rem; font-weight: 800; letter-spacing: -.04em; color: var(--ok); line-height: 1.1; }
+.summary-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.group header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.group h4 { font-size: .98rem; }
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+.ph { position: relative; border-radius: 16px; overflow: hidden; background: var(--surface-2); border: 2px solid transparent; transition: border-color .15s; }
+.ph.sel { border-color: #e0364a; }
+.ph.keep { border-color: #25c48a; }
+.ph.prot { border-color: #f5a300; }
+.ph-img { position: relative; aspect-ratio: 1; background: var(--surface-2); }
+.ph-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph-tag { position: absolute; left: 8px; bottom: 8px; padding: 2px 9px; border-radius: 999px; font-size: .7rem; font-weight: 800; color: #fff; }
+.ph-tag.keep { background: #12a06e; } .ph-tag.dup { background: #e0364a; } .ph-tag.prot { background: #e59200; }
+.ph-chk { position: absolute; left: 8px; top: 8px; width: 28px; height: 28px; border-radius: 9px; background: rgba(255,255,255,.94); display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.2); cursor: pointer; }
+.ph-chk input { width: 17px; height: 17px; accent-color: #e0364a; cursor: pointer; }
+.ph-star { position: absolute; right: 8px; top: 8px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.94); color: #8b8ca4; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+.ph-star .ic { width: 17px; height: 17px; }
+.ph-star[aria-pressed="true"] { color: #f5a300; }
+.ph-star[aria-pressed="true"] .ic { fill: currentColor; }
+.ph-meta { padding: 8px 10px 10px; font-size: .74rem; color: var(--muted); line-height: 1.35; }
+.ph-meta b { display: block; color: var(--text); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ok-card { text-align: center; padding: 30px 20px; }
+
+/* recuerdos protegidos */
+.mem-cover.img { padding: 0; }
+.mem-cover.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mem-info h4 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* mensajes: audio real */
+.dz { border: 2px dashed var(--line); border-radius: var(--r-md); padding: 30px 20px; text-align: center; background: var(--surface); margin-bottom: 14px; }
+.dz .art { width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 24px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-ink); }
+.dz .art .ic { width: 34px; height: 34px; }
+.dz h3 { font-size: 1.15rem; }
+.dz p { color: var(--muted); font-size: .9rem; margin: 6px auto 18px; max-width: 420px; }
+.dz-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.status { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); font-size: .88rem; }
+.status .spinner { color: var(--primary); flex: none; }
+.status.err { background: var(--bad-soft); color: var(--bad); }
+textarea.tx {
+  width: 100%; min-height: 92px; resize: vertical; border-radius: 14px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 16px; padding: 12px 14px; line-height: 1.45; outline: none;
+}
+textarea.tx:focus { border-color: var(--primary-2); box-shadow: 0 0 0 4px var(--primary-soft); }
+.insight textarea.tx { margin-top: 4px; }
+.replies { display: grid; gap: 8px; margin-bottom: 12px; }
+.rep { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 2px solid transparent; font-size: .93rem; width: 100%; }
+.rep .rd { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--wave-off); flex: none; margin-top: 1px; }
+.rep[aria-checked="true"] { border-color: var(--primary-2); }
+.rep[aria-checked="true"] .rd { border: 6px solid var(--primary-2); }
+.audio time { min-width: 38px; }
+.demo-chip { font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); background: var(--warn-soft); padding: 3px 9px; border-radius: 999px; }
+.chat-head .head-btn { flex: none; }
+
+/* archivos */
+.row .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.more-note { text-align: center; color: var(--muted); font-size: .82rem; padding: 12px; }
+
+/* ajustes finales */
+.reply-actions { flex-wrap: wrap; }
+.reply-actions #waBtn { flex: 1 1 100%; }
+.mem-cover.img { position: relative; overflow: hidden; }
+.mem-cover.img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+textarea.tx { overflow: hidden; }
+.seg button { white-space: nowrap; }
+
+/* ==================================================
+   V3 — modo app Android (WhatsApp en el teléfono)
+   ================================================== */
+.flip { transform: rotate(180deg); }
+.wa-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.wa-top h3 { font-size: 1.1rem; }
+.wa-sub { color: var(--muted); font-size: .85rem; margin: 0 0 12px; }
+.wa-cats .row { text-align: left; }
+.wa-size { font-size: .88rem; color: var(--muted); white-space: nowrap; }
+.wa-chev { color: var(--muted); display: grid; place-items: center; }
+.wa-chev .ic { width: 18px; height: 18px; }
+.wa-chips { margin-bottom: 8px; }
+.wa-tools { margin: 0 0 12px; }
+.wa-photos { margin-bottom: 4px; }
+.wa-list { display: block; }
+.wa-row { cursor: pointer; border: 2px solid transparent; }
+.wa-row.sel { background: color-mix(in srgb, #e0364a 9%, transparent); }
+.wa-row.prot { background: color-mix(in srgb, #f5a300 10%, transparent); }
+.wa-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: #e0364a; flex: none; }
+.wa-chk-sp { width: 20px; flex: none; }
+.wa-row .ph-star { position: static; flex: none; }
+.wa-dupitem { position: relative; }
+.wa-dupitem .wa-list { display: block; }
+.wa-keep { position: absolute; left: 50%; transform: translateX(-50%); top: 10px; z-index: 2; background: #12a06e; color: #fff; font-size: .7rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; pointer-events: none; }
+.wa-list .wa-dupitem .wa-keep { left: auto; transform: none; top: 8px; right: 56px; }
+.wa-bar {
+  position: sticky; z-index: 30; bottom: -18px;
+  margin-top: 16px; display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow-md);
+}
+.wa-bar-info { flex: 1; min-width: 0; line-height: 1.25; }
+.wa-bar-info b { display: block; font-size: 1.05rem; }
+.wa-bar-info small { color: var(--muted); font-size: .78rem; }
+.wa-bar .btn-danger { background: #e0364a; color: #fff; border-color: #e0364a; }
+.wa-bar .btn-danger:disabled { opacity: .45; }
+.wa-alist { margin-top: 14px; }
+.wa-alist .row-main h4 { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.wa-alist .row-main p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-card > div > .scan-top { margin-bottom: 14px; }
+
+.wa-total { display: grid; gap: 2px; margin-bottom: 14px; }
+.wa-total small { color: var(--muted); font-size: .82rem; }
+.wa-total b { font-size: 2rem; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
+.wa-chips { flex-wrap: wrap; overflow: visible; }
+.wa-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.wa-badge-row small { color: var(--muted); font-size: .76rem; }
+</style>
+</head>
+
+<body>
+
+<!-- ============ ICON SPRITE ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.2A8 8 0 1 1 21 12z"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 13h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 13v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5l-3.5-7.9A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.1z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.3 7.5 9.5 4.4-1.2 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 9"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 4.5 2.5-4.5 2.5z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.6.6 0 0 0 .9.5l11-6.8a.6.6 0 0 0 0-1L8.9 4.7a.6.6 0 0 0-.9.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M11 18.5h2"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2.5"/><path d="M8 20h8M12 16v4"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M7 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-1"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".8"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></symbol>
+<linearGradient id="wmGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="308" y2="100"><stop offset="0" style="stop-color:var(--wm-a,#8f6dff)"/><stop offset="1" style="stop-color:var(--wm-b,#4338ca)"/></linearGradient><linearGradient id="wmSpark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffcf70"/><stop offset="1" stop-color="#ff7fb2"/></linearGradient>
+<symbol id="wm" viewBox="0 0 308 100"><g fill="none" stroke="url(#wmGrad)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path transform="translate(0.0 0)" d="M81.2 21.9 A42.0 42.0 0 1 0 81.2 78.1"/><path transform="translate(98.0 0)" d="M8.0 44 V92.0 M8.0 64 C8.0 52 17 44 31 44"/><path transform="translate(148.0 0)" d="M8.0 44 V92.0"/><path transform="translate(176.0 0)" d="M8.0 8.0 V92.0 M50 44 L8.0 72 M25 60.5 L52 92.0"/><path transform="translate(244.0 0)" d="M8.0 68.0 a24 24 0 1 0 48 0 a24 24 0 1 0 -48 0 M56.0 44 V92.0"/></g><path transform="translate(156.0 13) scale(0.98)" fill="url(#wmSpark)" stroke="none" d="M0 -17 C2.4 -6 6 -2.4 17 0 C6 2.4 2.4 6 0 17 C-2.4 6 -6 2.4 -17 0 C-6 -2.4 -2.4 -6 0 -17Z"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ SIDEBAR (desktop) ============ -->
+<aside class="sidebar" aria-label="Navegación">
+  <div class="brand">
+    <img class="brand-mark" src="icons/icon-192.png" alt="" width="40" height="40">
+    <svg class="wordmark" viewBox="0 0 308 100" role="img" aria-label="Crika"><use href="#wm"/></svg>
+  </div>
+  <nav class="side-menu">
+    <button class="side-item" data-target="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Inicio</button>
+    <button class="side-item" data-target="limpieza"><svg class="ic"><use href="#i-sparkles"/></svg>Limpieza</button>
+    <button class="side-item" data-target="recuerdos"><svg class="ic"><use href="#i-heart"/></svg>Recuerdos</button>
+    <button class="side-item" data-target="mensajes"><svg class="ic"><use href="#i-chat"/></svg>Mensajes</button>
+    <button class="side-item" data-target="bandeja"><svg class="ic"><use href="#i-inbox"/></svg>Bandeja<span class="count-badge" data-pending hidden>0</span></button>
+    <button class="side-item" data-target="archivos"><svg class="ic"><use href="#i-folder"/></svg>Archivos</button>
+  </nav>
+  <div class="side-foot">
+    <div class="side-install" id="sideInstall" hidden>
+      <div><b>Instalá Crika</b><span>Abrila como una app más, sin el navegador.</span></div>
+      <button class="btn btn-sm" data-action="install">Instalar app</button>
+    </div>
+  </div>
+</aside>
+
+<div class="app">
+<main class="main" id="main">
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="icons/icon-192.png" alt="" width="40" height="40">
+      <svg class="wordmark" viewBox="0 0 308 100" role="img" aria-label="Crika"><use href="#wm"/></svg>
+    </div>
+    <button class="icon-btn" data-target="bandeja" aria-label="Bandeja inteligente">
+      <svg class="ic"><use href="#i-inbox"/></svg>
+      <span class="count-badge" data-pending hidden>0</span>
+    </button>
+  </header>
+
+  <!-- ================= INICIO ================= -->
+  <section id="home" class="view active" aria-label="Inicio">
+    <div class="page-head">
+      <h1>Tu celular, inteligentemente ordenado.</h1>
+    </div>
+
+    <div class="install" id="installBanner" hidden>
+      <img src="icons/icon-192.png" alt="" width="46" height="46">
+      <div><b>Instalá Crika</b><span>Usala como app desde tu pantalla de inicio.</span></div>
+      <button class="btn btn-primary btn-sm" data-action="install">Instalar</button>
+      <button class="x-btn" data-action="dismiss-install" aria-label="Cerrar"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+
+    <div class="notice">
+      <svg class="ic"><use href="#i-shield"/></svg>
+      <div><b>Tu privacidad primero</b><span>Crika analiza tus fotos y audios dentro de tu celular. Nada se sube a internet. Vos tenés la última decisión.</span></div>
+    </div>
+
+    <div class="home-grid">
+      <div class="hero">
+        <div class="hero-top">
+          <div class="ring" role="img" aria-label="Porcentaje liberable de lo analizado">
+            <svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="50"/><circle class="bar" id="ringBar" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16"/></svg>
+            <div class="ring-label"><b id="ringPct">–</b><small id="ringSub">sin analizar</small></div>
+          </div>
+          <div class="hero-info">
+            <small id="heroLabel">Fotos analizadas</small>
+            <h2 id="heroPhotos">0</h2>
+            <small id="heroSub">Todavía no analizaste nada</small>
+          </div>
+        </div>
+        <div>
+          <div class="hero-recover">
+            <small id="heroRecLabel">Espacio que podés liberar</small>
+            <div class="big" id="heroRecover">0 MB</div>
+          </div>
+          <button class="btn btn-hero btn-block" id="analyzeBtn" data-action="pick-photos"><svg class="ic"><use href="#i-sparkles"/></svg><span id="analyzeLabel">Analizar mis fotos</span></button>
+          <p class="hero-hint" id="heroHint">Elegí tus fotos o un álbum completo. Crika busca duplicadas y parecidas.</p>
+        </div>
+      </div>
+
+      <button class="card stat" data-target="recuerdos">
+        <span class="tile tone-green"><svg class="ic"><use href="#i-shield"/></svg></span>
+        <span class="stat-body">
+          <small>Recuerdos protegidos</small>
+          <b id="statProt">0</b>
+          <em>fotos que Crika nunca marca para borrar</em>
+        </span>
+      </button>
+
+      <button class="card stat" data-target="mensajes">
+        <span class="tile tone-amber"><svg class="ic"><use href="#i-mic"/></svg></span>
+        <span class="stat-body">
+          <small>Audios transcriptos</small>
+          <b id="statAudios">0</b>
+          <em id="statAudiosSub">Elegí o compartí un audio</em>
+        </span>
+      </button>
+
+      <div class="card wide">
+        <h3 style="font-size:1.05rem;margin-bottom:14px">Cómo funciona</h3>
+        <div class="how" id="howBox">
+          <div>
+            <h4><svg class="ic"><use href="#i-image"/></svg>Fotos</h4>
+            <ol class="steps">
+              <li><span>Elegís tus fotos en <b>Limpieza</b>.</span></li>
+              <li><span>Crika marca las duplicadas y parecidas.</span></li>
+              <li><span>Vos decidís cuáles borrar desde tu galería.</span></li>
+            </ol>
+          </div>
+          <div>
+            <h4><svg class="ic"><use href="#i-mic"/></svg>Audios de WhatsApp</h4>
+            <ol class="steps">
+              <li><span>Compartís (o elegís) un audio en <b>Mensajes</b>.</span></li>
+              <li><span>Crika lo escucha, lo transcribe y sugiere respuestas.</span></li>
+              <li><span>Elegís una y la enviás por WhatsApp.</span></li>
+            </ol>
+          </div>
+        </div>
+        <p class="stat-note" id="howNote">Una app instalada desde el navegador no puede mirar tu galería sola: vos elegís qué analizar y Crika trabaja solo con eso.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIMPIEZA ================= -->
+  <section id="limpieza" class="view" aria-label="Limpieza inteligente">
+    <div class="page-head">
+      <h2>Limpieza inteligente</h2>
+      <p>Libera espacio. Conserva tus recuerdos.</p>
+    </div>
+
+    <div class="card wa-card" id="waCard" hidden><div id="waBody"></div></div>
+
+    <div class="card" id="photoCard">
+      <div class="scan-top">
+        <span class="tile tone-violet"><svg class="ic"><use href="#i-copy"/></svg></span>
+        <div>
+          <h3>Fotos duplicadas y parecidas</h3>
+          <p>Elegí tus fotos y Crika las compara dentro de tu celular. No se sube nada.</p>
+        </div>
+      </div>
+      <div class="seg tight" role="group" aria-label="Sensibilidad">
+        <button data-sim="similar" aria-selected="true">Parecidas</button>
+        <button data-sim="exact" aria-selected="false">Idénticas</button>
+      </div>
+      <button class="btn btn-primary btn-block" data-action="pick-photos"><svg class="ic"><use href="#i-image"/></svg>Elegir fotos</button>
+      <div class="progress" id="scanProgress" hidden>
+        <div class="progress-bar"><i id="scanFill"></i></div>
+        <small id="scanText">Analizando…</small>
+      </div>
+    </div>
+
+    <div id="dupResults"></div>
+  </section>
+
+  <!-- ================= RECUERDOS ================= -->
+  <section id="recuerdos" class="view" aria-label="Recuerdos">
+    <div class="page-head">
+      <h2>Recuerdos</h2>
+      <p>Lo que protejas acá nunca se marca para borrar en la limpieza.</p>
+    </div>
+
+    <div class="section-title" style="margin-top:0">
+      <span>Protegido por Crika</span>
+      <button class="btn btn-soft btn-sm" data-action="pick-protect"><svg class="ic"><use href="#i-plus"/></svg>Añadir</button>
+    </div>
+
+    <div class="mem-grid" id="memGrid"></div>
+    <div class="empty" id="memEmpty" hidden>
+      <div class="art"><svg class="ic"><use href="#i-shield"/></svg></div>
+      <h3>Todavía no protegiste nada</h3>
+      <p>Tocá <b>Añadir</b> y elegí tus fotos más importantes. También podés tocar la estrella ★ en cualquier foto durante la limpieza.</p>
+    </div>
+    <p class="hint" id="memNote" hidden>Se guarda una miniatura chica y una huella de cada foto solo en este navegador. Las fotos originales no se copian.</p>
+  </section>
+
+  <!-- ================= MENSAJES ================= -->
+  <section id="mensajes" class="view" aria-label="Mensajes inteligentes">
+    <div class="page-head">
+      <h2>Mensajes inteligentes</h2>
+      <p>Crika escucha el audio, lo transcribe y te sugiere qué responder. Vos solo enviás.</p>
+    </div>
+
+    <div class="card wa-card" id="waAudioCard" hidden><div id="waAudioBody"></div></div>
+
+    <div class="dz" id="audioDrop">
+      <div class="art"><svg class="ic"><use href="#i-mic"/></svg></div>
+      <h3>Traé un audio de WhatsApp</h3>
+      <p>Elegí un audio, o compartilo con Crika desde WhatsApp (Android, con la app instalada). Se procesa dentro de tu celular.</p>
+      <div class="dz-actions">
+        <button class="btn btn-primary" data-action="pick-audio"><svg class="ic"><use href="#i-mic"/></svg>Elegir audio</button>
+      </div>
+    </div>
+
+    <article class="card chat" id="audioCard" hidden>
+      <div class="chat-head">
+        <div class="avatar"><svg class="ic"><use href="#i-mic"/></svg></div>
+        <div><b id="acTitle">Audio</b><small id="acSub"></small></div>
+        <span class="badge badge-primary" id="acBadge">Nuevo</span>
+      </div>
+      <div class="chat-body">
+        <div class="audio" id="acPlayer">
+          <button class="play" id="playBtn" data-action="play" aria-label="Reproducir audio"><svg class="ic ic-fill" id="playIcon"><use href="#i-play"/></svg></button>
+          <div class="wave" id="wave" aria-hidden="true"></div>
+          <time id="audioTime">0:00</time>
+        </div>
+        <audio id="audioEl" preload="metadata" class="vh"></audio>
+
+        <div class="status" id="txStatus" hidden></div>
+        <button class="btn btn-primary btn-block" id="txBtn" data-action="transcribe" hidden><svg class="ic"><use href="#i-sparkles"/></svg><span id="txBtnLabel">Transcribir</span></button>
+        <p class="hint" id="txHint" hidden style="margin-top:-6px">La primera vez Crika descarga un motor de voz (unos 75 MB, una sola vez). Después funciona también sin internet.</p>
+
+        <div class="insight">
+          <h5><svg class="ic"><use href="#i-mic"/></svg>Transcripción</h5>
+          <textarea class="tx" id="txText" aria-label="Transcripción" placeholder="Acá aparece lo que dice el audio. También podés escribirlo o pegarlo."></textarea>
+        </div>
+
+        <div class="insight ok" id="understood" hidden>
+          <h5><svg class="ic"><use href="#i-sparkles"/></svg>Crika entendió</h5>
+          <p id="understoodText"></p>
+        </div>
+
+        <div class="reply" id="replyBox" hidden>
+          <h5>Respuestas sugeridas</h5>
+          <div class="replies" id="replies" role="radiogroup" aria-label="Respuestas sugeridas"></div>
+          <textarea class="tx" id="replyText" aria-label="Respuesta que vas a enviar"></textarea>
+          <div class="reply-actions" style="margin-top:12px">
+            <a class="btn btn-primary" id="waBtn" href="#" target="_blank" rel="noopener" data-action="wa-sent"><svg class="ic"><use href="#i-send"/></svg>Enviar por WhatsApp</a>
+            <button class="btn btn-ghost" data-action="copy-reply">Copiar</button>
+            <button class="btn btn-danger" data-action="discard-audio">Descartar</button>
+          </div>
+          <p class="hint">WhatsApp se abre con la respuesta lista: elegís el chat y tocás enviar. Crika no envía nada por su cuenta.</p>
+        </div>
+
+        <button class="btn btn-soft btn-block" data-action="new-audio"><svg class="ic"><use href="#i-plus"/></svg>Analizar otro audio</button>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= BANDEJA ================= -->
+  <section id="bandeja" class="view" aria-label="Bandeja inteligente">
+    <div class="page-head">
+      <h2>Bandeja inteligente</h2>
+      <p>Tus audios procesados y tus análisis, ordenados.</p>
+    </div>
+    <div class="card flush" id="inboxList"></div>
+    <div class="empty" id="inboxEmpty" hidden>
+      <div class="art"><svg class="ic"><use href="#i-inbox"/></svg></div>
+      <h3>Bandeja vacía</h3>
+      <p>Cuando analices audios o fotos, van a aparecer acá.</p>
+    </div>
+  </section>
+
+  <!-- ================= ARCHIVOS ================= -->
+  <section id="archivos" class="view" aria-label="Archivos">
+    <div class="page-head">
+      <h2>Archivos</h2>
+      <p>Lo que analizaste en esta sesión, con filtros.</p>
+    </div>
+
+    <div class="search">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <input type="search" id="fileSearch" placeholder="Buscar por nombre o tipo..." aria-label="Buscar archivos" autocomplete="off">
+    </div>
+
+    <div class="chips" id="chips" role="group" aria-label="Filtros">
+      <button class="chip" data-chip="Todos" aria-pressed="true">Todos</button>
+      <button class="chip" data-chip="Fotos" aria-pressed="false">Fotos</button>
+      <button class="chip" data-chip="Duplicadas" aria-pressed="false">Duplicadas</button>
+      <button class="chip" data-chip="Protegidas" aria-pressed="false">Protegidas</button>
+      <button class="chip" data-chip="Audios" aria-pressed="false">Audios</button>
+    </div>
+
+    <div class="card flush" id="fileList"></div>
+    <div class="empty" id="fileEmpty" hidden>
+      <div class="art"><svg class="ic"><use href="#i-search"/></svg></div>
+      <h3 id="fileEmptyTitle">Sin resultados</h3>
+      <p id="fileEmptyText">Probá con otro filtro o palabra.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ NAV INFERIOR (móvil) ============ -->
+<nav class="nav" aria-label="Principal">
+  <button class="nav-item" data-target="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg><span>Inicio</span></button>
+  <button class="nav-item" data-target="limpieza"><svg class="ic"><use href="#i-sparkles"/></svg><span>Limpieza</span></button>
+  <button class="nav-item" data-target="recuerdos"><svg class="ic"><use href="#i-heart"/></svg><span>Recuerdos</span></button>
+  <button class="nav-item" data-target="mensajes"><svg class="ic"><use href="#i-chat"/></svg><span>Mensajes</span></button>
+  <button class="nav-item" data-target="archivos"><svg class="ic"><use href="#i-folder"/></svg><span>Archivos</span></button>
+</nav>
+</div>
+
+<!-- entradas de archivos (ocultas) -->
+<input class="vh" type="file" id="photoInput" accept="image/*" multiple tabindex="-1" aria-hidden="true">
+<input class="vh" type="file" id="protectInput" accept="image/*" multiple tabindex="-1" aria-hidden="true">
+<input class="vh" type="file" id="audioInput" accept="audio/*,.opus,.ogg,.m4a,.aac,.mp3,.wav,.amr,.3gp" tabindex="-1" aria-hidden="true">
+
+<!-- ============ SHEET ============ -->
+<div class="sheet-back" id="sheetBack" aria-hidden="true">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="grab"></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg class="ic"><use href="#i-check"/></svg><span id="toastMsg"></span>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================
+   Utilidades
+   ===================================================== */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ic = (n, c = '') => `<svg class="ic ${c}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const dec = n => n.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
+const thousands = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const fmtBytes = b => b <= 0 ? '0 MB' : b >= 1073741824 ? dec(b / 1073741824) + ' GB' : b >= 1048576 ? dec(b / 1048576) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+const fmtDate = ts => { try { return new Date(ts).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (_) { return ''; } };
+const timeAgo = ts => {
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'recién'; if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60); if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24); return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
+};
+const fmtDT = ts => { try { return new Date(ts).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; } };
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const tick = () => new Promise(r => setTimeout(r, 0));
+const grow = el => { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight + 2, 320) + 'px'; };
+
+const NAT = window.CrikaNative || null;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } },
+};
+const K = { prot: 'crika-protected-v1', audios: 'crika-audios-v1', scan: 'crika-lastscan-v1', asr: 'crika-asr-ready-v1', dismiss: 'crika-install-dismissed', waScan: 'crika-wascan-v1', waProt: 'crika-waprot-v1' };
+
+/* =====================================================
+   Estado (todo arranca en cero)
+   ===================================================== */
+const S = {
+  photos: [], groups: [], sel: new Set(), sim: 'similar', scanning: false,
+  prot: store.get(K.prot, []),
+  audios: store.get(K.audios, []),
+  lastScan: store.get(K.scan, null),
+  cur: null,
+  filter: 'Todos', query: '',
+};
+
+/* =====================================================
+   Toast, navegación, hoja
+   ===================================================== */
+let toastTimer;
+function toast(msg) {
+  $('#toastMsg').textContent = msg;
+  $('#toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3200);
+}
+
+function go(id) {
+  if (!document.getElementById(id)) return;
+  $$('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  $$('.nav-item, .side-item').forEach(b => {
+    if (b.dataset.target === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  if (id === 'archivos') renderFiles();
+  if (id === 'bandeja') renderInbox();
+  if (id === 'recuerdos') renderMemories();
+  $('#main').scrollTop = 0;
+}
+
+let lastFocus = null;
+function openSheet(html) {
+  lastFocus = document.activeElement;
+  $('#sheetBody').innerHTML = html;
+  $('#sheetBack').classList.add('open');
+  $('#sheetBack').setAttribute('aria-hidden', 'false');
+  setTimeout(() => $('#sheet').focus({ preventScroll: true }), 50);
+}
+function closeSheet() {
+  $('#sheetBack').classList.remove('open');
+  $('#sheetBack').setAttribute('aria-hidden', 'true');
+  if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (_) {
+    try {
+      const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select(); const ok = document.execCommand('copy'); t.remove(); return ok;
+    } catch (_) { return false; }
+  }
+}
+
+/* =====================================================
+   FOTOS: huella visual (dHash + color) — todo local
+   ===================================================== */
+const pc = x => { x = x - ((x >>> 1) & 0x55555555); x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return Math.imul((x + (x >>> 4)) & 0x0F0F0F0F, 0x01010101) >>> 24; };
+const ham = (a, b) => pc((a.hi ^ b.hi) >>> 0) + pc((a.lo ^ b.lo) >>> 0);
+const colDiff = (a, b) => { let s = 0; for (let i = 0; i < 48; i++) s += Math.abs(a.col[i] - b.col[i]); return s / 48; };
+const sameShape = (a, b) => Math.abs(a.w / a.h - b.w / b.h) < 0.05;
+const LIMITS = { similar: { h: 10, c: 24 }, exact: { h: 3, c: 9 } };
+const close = (a, b, mode) => sameShape(a, b) && ham(a, b) <= LIMITS[mode].h && colDiff(a, b) <= LIMITS[mode].c;
+
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+const c32 = makeCanvas(32, 32), x32 = c32.getContext('2d', { willReadFrequently: true });
+const c9 = makeCanvas(9, 8), x9 = c9.getContext('2d', { willReadFrequently: true });
+const c4 = makeCanvas(4, 4), x4 = c4.getContext('2d', { willReadFrequently: true });
+[x32, x9, x4].forEach(x => { x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; });
+
+async function fingerprint(file) {
+  const bmp = await createImageBitmap(file);
+  const w = bmp.width, h = bmp.height;
+  x32.clearRect(0, 0, 32, 32);
+  x32.drawImage(bmp, 0, 0, 32, 32);
+  if (bmp.close) bmp.close();
+  x9.drawImage(c32, 0, 0, 9, 8);
+  const d = x9.getImageData(0, 0, 9, 8).data;
+  const g = i => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  let hi = 0, lo = 0, bit = 0;
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+    const v = g(y * 9 + x) > g(y * 9 + x + 1) ? 1 : 0;
+    if (bit < 32) hi = ((hi << 1) | v) >>> 0; else lo = ((lo << 1) | v) >>> 0;
+    bit++;
+  }
+  x4.drawImage(c32, 0, 0, 4, 4);
+  const cd = x4.getImageData(0, 0, 4, 4).data, col = [];
+  for (let i = 0; i < 16; i++) col.push(cd[i * 4], cd[i * 4 + 1], cd[i * 4 + 2]);
+  return { hi, lo, col, w, h };
+}
+
+async function makeThumb(file, size, asData) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { resizeWidth: size, resizeQuality: 'low' }); } catch (_) { bmp = await createImageBitmap(file); }
+  const r = bmp.width / bmp.height;
+  const w = r >= 1 ? size : Math.round(size * r), h = r >= 1 ? Math.round(size / r) : size;
+  const c = makeCanvas(w, h); c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+  if (asData) return c.toDataURL('image/jpeg', 0.6);
+  return new Promise(res => c.toBlob(b => res(URL.createObjectURL(b)), 'image/jpeg', 0.75));
+}
+
+/* ---- protegidas ---- */
+const sameFile = (q, p) => q.name === p.name && q.size === p.size && q.w === p.w && q.h === p.h;
+const protMatch = p => S.prot.some(q => sameFile(q, p));
+function saveProt() { if (!store.set(K.prot, S.prot)) { toast('No pude guardar: el espacio del navegador está lleno'); return false; } return true; }
+
+async function protectPhoto(p) {
+  if (S.prot.length >= 300) { toast('Llegaste al máximo de 300 recuerdos protegidos'); return; }
+  const thumb = await makeThumb(p.file, 96, true);
+  S.prot.push({ id: 'p' + Date.now() + Math.random().toString(36).slice(2, 6), name: p.name, size: p.size, hi: p.hi, lo: p.lo, col: p.col, w: p.w, h: p.h, thumb, ts: Date.now() });
+  saveProt();
+}
+function unprotectMatching(p) { S.prot = S.prot.filter(q => !sameFile(q, p)); saveProt(); }
+
+/* =====================================================
+   FOTOS: escaneo y agrupado
+   ===================================================== */
+const isImage = f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(f.name);
+
+async function scanPhotos(fileList) {
+  if (S.scanning) return;
+  const files = [...fileList].filter(isImage);
+  if (!files.length) { toast('No encontré fotos en lo que elegiste'); return; }
+  S.scanning = true;
+  S.photos.forEach(p => p.thumb && URL.revokeObjectURL(p.thumb));
+  S.photos = []; S.groups = []; S.sel = new Set();
+  go('limpieza'); renderDups();
+  $('#scanProgress').hidden = false;
+  const recs = new Array(files.length); let done = 0, skipped = 0;
+  const queue = files.map((_, i) => i);
+  const worker = async () => {
+    while (queue.length) {
+      const i = queue.shift();
+      try { const fp = await fingerprint(files[i]); recs[i] = { file: files[i], name: files[i].name, size: files[i].size, ts: files[i].lastModified || Date.now(), ...fp }; }
+      catch (_) { skipped++; }
+      done++;
+      if (done % 2 === 0 || done === files.length) {
+        $('#scanFill').style.width = (done / files.length * 100) + '%';
+        $('#scanText').textContent = `Analizando ${done} de ${files.length}…`;
+        await tick();
+      }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  S.photos = recs.filter(Boolean).map((r, i) => ({ id: i, ...r }));
+  S.photos.forEach(p => { p.prot = protMatch(p); });
+  regroup();
+  $('#scanProgress').hidden = true;
+  S.scanning = false;
+
+  const dupBytes = selBytes();
+  const total = S.photos.reduce((a, p) => a + p.size, 0);
+  S.lastScan = { ts: Date.now(), photos: S.photos.length, groups: S.groups.length, bytes: dupBytes, total, skipped };
+  store.set(K.scan, S.lastScan);
+  renderAll();
+  if (skipped) toast(`Listo. ${skipped} ${skipped === 1 ? 'archivo no se pudo leer' : 'archivos no se pudieron leer'}.`);
+  else toast(S.groups.length ? `Encontré ${S.groups.length} ${S.groups.length === 1 ? 'grupo' : 'grupos'} de fotos repetidas` : 'No encontré fotos repetidas');
+  makeGroupThumbs();
+}
+
+function regroup() {
+  const P = S.photos, n = P.length, parent = P.map((_, i) => i);
+  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    if (close(P[i], P[j], S.sim)) { const a = find(i), b = find(j); if (a !== b) parent[b] = a; }
+  }
+  const map = new Map();
+  for (let i = 0; i < n; i++) { const r = find(i); if (!map.has(r)) map.set(r, []); map.get(r).push(i); }
+  S.groups = [...map.values()].filter(g => g.length > 1).map(idx => {
+    idx.sort((a, b) => (P[b].prot - P[a].prot) || (P[b].w * P[b].h - P[a].w * P[a].h) || (P[b].size - P[a].size) || (P[b].ts - P[a].ts));
+    let maxD = 0;
+    for (let x = 0; x < idx.length; x++) for (let y = x + 1; y < idx.length; y++) maxD = Math.max(maxD, ham(P[idx[x]], P[idx[y]]));
+    return { items: idx, keeper: idx[0], exact: maxD <= 3 };
+  });
+  S.sel = new Set();
+  S.groups.forEach(g => g.items.forEach(i => { if (i !== g.keeper && !P[i].prot) S.sel.add(i); }));
+}
+const selBytes = () => [...S.sel].reduce((a, i) => a + S.photos[i].size, 0);
+
+async function makeGroupThumbs() {
+  const ids = [...new Set(S.groups.flatMap(g => g.items))].filter(i => !S.photos[i].thumb).slice(0, 400);
+  let k = 0;
+  const w = async () => {
+    while (k < ids.length) {
+      const i = ids[k++], p = S.photos[i];
+      try { p.thumb = await makeThumb(p.file, 260, false); const img = $(`img[data-i="${i}"]`); if (img) img.src = p.thumb; } catch (_) {}
+    }
+  };
+  await Promise.all([w(), w()]);
+}
+
+/* ---- render: resultados ---- */
+function renderDups() {
+  const el = $('#dupResults');
+  if (S.scanning) { el.innerHTML = ''; return; }
+  if (!S.photos.length) {
+    el.innerHTML = S.lastScan
+      ? `<div class="card"><p style="color:var(--muted);font-size:.9rem">Tu último análisis (${timeAgo(S.lastScan.ts)}): ${thousands(S.lastScan.photos)} fotos y ${S.lastScan.groups} ${S.lastScan.groups === 1 ? 'grupo repetido' : 'grupos repetidos'}. Volvé a elegir tus fotos para revisarlas.</p></div>`
+      : '';
+    return;
+  }
+  if (!S.groups.length) {
+    el.innerHTML = `<div class="card ok-card"><div class="empty" style="padding:0"><div class="art"><svg class="ic"><use href="#i-check"/></svg></div><h3>No encontré fotos repetidas</h3><p>Analicé ${thousands(S.photos.length)} fotos. Si querés, probá con “Parecidas” para ser más flexible.</p></div></div>`;
+    return;
+  }
+  const dupCount = S.groups.reduce((a, g) => a + g.items.length - 1, 0);
+  const summary = `
+    <div class="card summary" id="summary">
+      <div class="summary-top">
+        <div><small>Podés liberar</small><b class="big" id="sumBytes">${fmtBytes(selBytes())}</b></div>
+        <small id="sumText">${S.sel.size} de ${dupCount} repetidas marcadas · ${S.groups.length} ${S.groups.length === 1 ? 'grupo' : 'grupos'} en ${thousands(S.photos.length)} fotos</small>
+      </div>
+      <div class="summary-actions">
+        <button class="btn btn-primary btn-sm" data-action="copy-list">${ic('copy')}Copiar lista</button>
+        <button class="btn btn-soft btn-sm" data-action="how-delete">Cómo borrarlas</button>
+        <button class="btn btn-ghost btn-sm" data-action="sel-all">Marcar todas</button>
+        <button class="btn btn-ghost btn-sm" data-action="sel-none">Ninguna</button>
+      </div>
+    </div>`;
+  const groups = S.groups.map((g, gi) => {
+    const extra = g.items.filter(i => i !== g.keeper).reduce((a, i) => a + S.photos[i].size, 0);
+    return `<article class="card group">
+      <header><h4>Grupo ${gi + 1} · ${g.items.length} fotos</h4><span class="badge ${g.exact ? 'badge-ok' : 'badge-primary'}">${g.exact ? 'Idénticas' : 'Parecidas'} · ${fmtBytes(extra)}</span></header>
+      <div class="photos">${g.items.map(i => photoHTML(i, g)).join('')}</div>
+    </article>`;
+  }).join('');
+  el.innerHTML = summary + groups;
+  $$('img[data-i]', el).forEach(img => { const p = S.photos[+img.dataset.i]; if (p.thumb) img.src = p.thumb; });
+}
+
+function photoHTML(i, g) {
+  const p = S.photos[i], isKeep = i === g.keeper, checked = S.sel.has(i);
+  const cls = p.prot ? 'prot' : checked ? 'sel' : (isKeep ? 'keep' : '');
+  const tag = p.prot ? '<span class="ph-tag prot">Protegida</span>' : isKeep ? '<span class="ph-tag keep">Conservar</span>' : '<span class="ph-tag dup">Repetida</span>';
+  return `<div class="ph ${cls}" data-ph="${i}">
+    <div class="ph-img">
+      <img data-i="${i}" alt="${esc(p.name)}" decoding="async">
+      ${p.prot ? '' : `<label class="ph-chk" title="Marcar para borrar"><input type="checkbox" data-sel="${i}" ${checked ? 'checked' : ''} aria-label="Marcar ${esc(p.name)} para borrar"></label>`}
+      <button class="ph-star" data-action="protect" data-i="${i}" aria-pressed="${p.prot}" aria-label="${p.prot ? 'Quitar protección' : 'Proteger este recuerdo'}">${ic('star')}</button>
+      ${tag}
+    </div>
+    <div class="ph-meta"><b>${esc(p.name)}</b>${fmtBytes(p.size)} · ${p.w}×${p.h}<br>${fmtDate(p.ts)}</div>
+  </div>`;
+}
+
+function updateSummary() {
+  const dupCount = S.groups.reduce((a, g) => a + g.items.length - 1, 0);
+  const b = $('#sumBytes'); if (!b) return;
+  b.textContent = fmtBytes(selBytes());
+  $('#sumText').textContent = `${S.sel.size} de ${dupCount} repetidas marcadas · ${S.groups.length} ${S.groups.length === 1 ? 'grupo' : 'grupos'} en ${thousands(S.photos.length)} fotos`;
+  $$('.ph[data-ph]').forEach(el => {
+    const i = +el.dataset.ph, p = S.photos[i], g = S.groups.find(x => x.items.includes(i));
+    el.classList.toggle('sel', !p.prot && S.sel.has(i));
+    el.classList.toggle('keep', !p.prot && !S.sel.has(i) && g && g.keeper === i);
+  });
+  if (S.lastScan) { S.lastScan.bytes = selBytes(); store.set(K.scan, S.lastScan); renderHome(); }
+}
+
+async function togglePhotoProtect(i) {
+  const p = S.photos[i]; if (!p) return;
+  if (p.prot) { unprotectMatching(p); S.photos.forEach(q => { q.prot = protMatch(q); }); }
+  else { await protectPhoto(p); S.photos.forEach(q => { q.prot = protMatch(q); }); toast('Protegida: Crika nunca la va a marcar para borrar'); }
+  const keepSel = new Set([...S.sel].filter(x => !S.photos[x].prot));
+  regroup(); keepSel.forEach(x => { /* la selección se recalcula por regroup */ });
+  renderAll(); makeGroupThumbs();
+}
+
+function listText() {
+  const rows = [...S.sel].map(i => S.photos[i]).sort((a, b) => a.ts - b.ts).map(p => `${p.name} — ${fmtBytes(p.size)} — ${fmtDate(p.ts)}`);
+  return `Fotos repetidas para borrar (${rows.length}):\n` + rows.join('\n');
+}
+
+function howDeleteSheet() {
+  openSheet(`
+    <h3>Cómo borrar las fotos marcadas</h3>
+    <p class="sub">Una app web no puede borrar fotos de tu galería. Por eso las borrás vos, con la lista de Crika.</p>
+    <ol class="steps">
+      <li><span>Tocá <b>Copiar lista</b> para tener los nombres, tamaños y fechas.</span></li>
+      <li><span>Abrí tu galería (Google Fotos, Fotos, etc.) y ubicá cada foto por su miniatura y su fecha.</span></li>
+      <li><span>Seleccioná las repetidas y tocá <b>Eliminar</b>. Conservá la que Crika marcó como <b>Conservar</b>.</span></li>
+    </ol>
+    <div class="sheet-actions"><button class="btn btn-primary" data-action="close">Entendido</button></div>`);
+}
+
+/* =====================================================
+   RECUERDOS PROTEGIDOS
+   ===================================================== */
+function renderMemories() {
+  const g = $('#memGrid');
+  g.innerHTML = S.prot.slice().reverse().map((q, k) => `
+    <button class="mem" data-action="mem" data-id="${esc(q.id)}" aria-label="${esc(q.name)}, protegida">
+      <div class="mem-cover img g${(k % 4) + 1}"><img src="${q.thumb}" alt="" loading="lazy"></div>
+      <span class="mem-shield">${ic('check')}</span>
+      <div class="mem-info"><h4>${esc(q.name)}</h4><p>${fmtBytes(q.size)}</p></div>
+    </button>`).join('');
+  $('#memEmpty').hidden = S.prot.length > 0;
+  $('#memNote').hidden = S.prot.length === 0;
+}
+
+async function protectFiles(list) {
+  const files = [...list].filter(isImage);
+  if (!files.length) { toast('No encontré fotos en lo que elegiste'); return; }
+  let added = 0, dup = 0, fail = 0;
+  for (const f of files) {
+    if (S.prot.length >= 300) { toast('Llegaste al máximo de 300 recuerdos protegidos'); break; }
+    try {
+      const fp = await fingerprint(f);
+      const rec = { file: f, name: f.name, size: f.size, ts: f.lastModified || Date.now(), ...fp };
+      if (protMatch(rec)) { dup++; continue; }
+      await protectPhoto(rec); added++;
+    } catch (_) { fail++; }
+  }
+  S.photos.forEach(q => { q.prot = protMatch(q); });
+  renderAll();
+  toast(added ? `Protegiste ${added} ${added === 1 ? 'foto' : 'fotos'}${dup ? ` (${dup} ya estaban)` : ''}` : dup ? 'Esas fotos ya estaban protegidas' : 'No pude leer esas fotos');
+}
+
+/* =====================================================
+   AUDIOS: decodificar, reproducir, transcribir, sugerir
+   ===================================================== */
+async function decodeAudio(blob) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC({ sampleRate: 16000 });
+  try {
+    const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const n = buf.numberOfChannels, len = buf.length; let mono;
+    if (n === 1) mono = buf.getChannelData(0);
+    else { mono = new Float32Array(len); for (let c = 0; c < n; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i] / n; } }
+    return { pcm: mono, dur: buf.duration };
+  } finally { if (ctx.close) ctx.close(); }
+}
+
+const BARS = 34;
+function drawWave(pcm) {
+  const heights = [];
+  if (pcm && pcm.length) {
+    const seg = Math.floor(pcm.length / BARS); let mx = 0;
+    for (let b = 0; b < BARS; b++) { let p = 0; for (let i = b * seg; i < (b + 1) * seg; i += Math.max(1, Math.floor(seg / 200))) p = Math.max(p, Math.abs(pcm[i])); heights.push(p); mx = Math.max(mx, p); }
+    for (let b = 0; b < BARS; b++) heights[b] = Math.max(.12, heights[b] / (mx || 1));
+  } else for (let b = 0; b < BARS; b++) heights.push(.25 + ((b * 37) % 10) / 20);
+  $('#wave').innerHTML = heights.map(h => `<i style="--h:${Math.round(h * 100)}%"></i>`).join('');
+}
+function paintAudio() {
+  const a = $('#audioEl'), d = (a.duration && isFinite(a.duration)) ? a.duration : (S.cur && S.cur.dur) || 0;
+  const bars = $$('#wave i'), n = d ? Math.round(a.currentTime / d * bars.length) : 0;
+  bars.forEach((b, i) => b.classList.toggle('on', i < n));
+  $('#audioTime').textContent = a.currentTime > 0 && !a.paused ? mmss(a.currentTime) : mmss(d);
+}
+function setPlayIcon(playing) {
+  $('#playIcon').innerHTML = `<use href="#i-${playing ? 'pause' : 'play'}"/>`;
+  $('#playBtn').setAttribute('aria-label', playing ? 'Pausar audio' : 'Reproducir audio');
+}
+
+/* ---- motor de voz (Whisper en el dispositivo) ---- */
+let asrPromise = null;
+function getWhisper(cb) {
+  if (!asrPromise) {
+    asrPromise = (async () => {
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+      return pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { dtype: 'q8', device: 'wasm', progress_callback: cb });
+    })();
+    asrPromise.catch(() => { asrPromise = null; });
+  }
+  return asrPromise;
+}
+async function transcribe(pcm, setStatus) {
+  if (typeof window.CRIKA_TRANSCRIBE === 'function') return window.CRIKA_TRANSCRIBE(pcm, setStatus);
+  const files = {};
+  const asr = await getWhisper(e => {
+    if (e.status === 'progress' && e.total) {
+      files[e.file] = { l: e.loaded, t: e.total };
+      let l = 0, t = 0; for (const k in files) { l += files[k].l; t += files[k].t; }
+      setStatus('spin', `Descargando el motor de voz… ${Math.round(l / t * 100)}% (solo la primera vez)`);
+    }
+  });
+  setStatus('spin', 'Escuchando y transcribiendo…');
+  const out = await asr(pcm, { language: 'spanish', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 });
+  return (out && out.text ? out.text : '').trim();
+}
+
+/* ---- entendimiento y respuestas sugeridas (reglas en español rioplatense) ---- */
+const norm = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const NUM = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12 };
+const DAYNAME = { lunes: 'lunes', martes: 'martes', miercoles: 'miércoles', jueves: 'jueves', viernes: 'viernes', sabado: 'sábado', domingo: 'domingo' };
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+function findDay(n) {
+  const t = n.replace(/de la manana/g, 'DELAMAN');
+  const m = t.match(/\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+  if (m) return 'el ' + DAYNAME[m[1]];
+  if (/\bpasado manana\b/.test(t)) return 'pasado mañana';
+  if (/\bmanana\b/.test(t)) return 'mañana';
+  if (/\bhoy\b/.test(t)) return 'hoy';
+  if (/\b(finde|fin de semana)\b/.test(t)) return 'el fin de semana';
+  return null;
+}
+function findTime(n) {
+  let h = null, m = 0, mt;
+  if ((mt = n.match(/\b(\d{1,2})[:.](\d{2})\b/))) { h = +mt[1]; m = +mt[2]; }
+  else if ((mt = n.match(/\b(?:a las|a la|tipo|como a las|sobre las)\s+(\d{1,2}|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\b(\s+y media|\s+y cuarto|\s+menos cuarto)?/))) {
+    h = /^\d+$/.test(mt[1]) ? +mt[1] : NUM[mt[1]];
+    if (mt[2]) m = /media/.test(mt[2]) ? 30 : /y cuarto/.test(mt[2]) ? 15 : -15;
+  } else if ((mt = n.match(/\b(\d{1,2})\s*(?:hs|horas|h)\b/))) h = +mt[1];
+  else if ((mt = n.match(/\b(\d{1,2})\s+de la (tarde|noche|manana)\b/))) h = +mt[1];
+  if (h === null || h > 24) return null;
+  if (m < 0) { h -= 1; m = 45; }
+  if (/de la (tarde|noche)/.test(n) && h < 12) h += 12;
+  else if (/\b(a la|de la) noche\b/.test(n) && h < 12 && h >= 6) h += 12;
+  return { h, m };
+}
+const fmtTime = t => t.m ? `${t.h}:${String(t.m).padStart(2, '0')} hs` : `${t.h} hs`;
+
+function analyze(text) {
+  const raw = text.trim();
+  if (!raw) return null;
+  const n = norm(raw);
+  const day = findDay(n), time = findTime(n);
+  const meeting = /(juntar|juntamos|reunion|vernos|verte|quedar|quedamos|encontr|almorz|almuerzo|cenar|cena\b|cafe|tomar algo|llamada|videollamada|charlar|pasar por)/.test(n);
+  const thanks = /gracias/.test(n);
+  const request = /(podes|puedes|podrias|te viene|te parece|avisame|confirmame|me pasas|me mandas|mandame|enviame|pasame|necesito|fijate|te acordas|sabes si|\?)/.test(n) || raw.includes('¿');
+  const urgent = /(urgente|ya mismo|lo antes posible|cuanto antes|apurado)/.test(n);
+  const purposeM = raw.match(/para\s+((?:revisar|ver|hablar|charlar|definir|planear|organizar|terminar|cerrar|coordinar|preparar|repasar|decidir)[^.,;!?]{0,60})/i);
+  const purpose = purposeM ? purposeM[1].trim() : '';
+  const when = [day, time ? `a las ${fmtTime(time)}` : ''].filter(Boolean).join(' ');
+
+  let summary, replies;
+  if (meeting && (day || time)) {
+    const what = /reunion|revisar|proyecto/.test(n) ? 'una reunión' : 'un encuentro';
+    summary = `Propone coordinar ${what} ${when}${purpose ? ' para ' + purpose : ''}.`;
+    replies = [
+      day && time ? `Sí, perfecto. ${cap(when)} me viene bien. Nos vemos.` : day ? `Sí, perfecto. ${cap(day)} me viene bien. ¿A qué hora?` : `Sí, perfecto. A las ${fmtTime(time)} me viene bien. ¿Qué día?`,
+      'Ese horario me queda complicado. ¿Lo pasamos para otro momento? Decime cuándo te viene bien.',
+      'Dejame confirmar mi agenda y te aviso en un rato.',
+    ];
+  } else if (meeting) {
+    summary = 'Propone juntarse o hablar, pero no dice cuándo.';
+    replies = ['Sí, dale. ¿Cuándo te viene bien?', 'Ahora no puedo. ¿Lo vemos otro día?', 'Dejame ver mi agenda y te confirmo.'];
+  } else if (thanks && !request) {
+    summary = 'Te agradece.';
+    replies = ['¡De nada! Cualquier cosa avisame.', 'Un placer, ¡abrazo!', 'Cuando quieras, contá conmigo.'];
+  } else if (request) {
+    summary = 'Te pide algo o te hace una pregunta y espera respuesta.';
+    replies = ['Sí, dale. Ya me ocupo y te aviso.', 'Ahora no puedo, ¿lo vemos más tarde?', 'Dejame fijarme y te confirmo.'];
+  } else {
+    summary = 'Mensaje informativo.';
+    replies = ['Recibí tu audio. Lo reviso y te respondo en un rato.', 'Gracias por avisar, lo tengo en cuenta.', 'Dale, hablamos más tarde.'];
+  }
+  if (urgent) summary += ' Parece urgente.';
+  return { summary, replies };
+}
+
+/* ---- tarjeta de audio ---- */
+function setStatus(kind, msg) {
+  const el = $('#txStatus');
+  if (!kind) { el.hidden = true; return; }
+  el.hidden = false; el.className = 'status' + (kind === 'err' ? ' err' : '');
+  el.innerHTML = (kind === 'spin' ? '<span class="spinner"></span>' : '') + `<span>${esc(msg)}</span>`;
+}
+function showAudioCard(show) {
+  $('#audioCard').hidden = !show; $('#audioDrop').hidden = show;
+}
+function updateWa() {
+  const t = $('#replyText').value.trim(), a = $('#waBtn');
+  a.href = t ? 'https://wa.me/?text=' + encodeURIComponent(t) : '#';
+  a.setAttribute('aria-disabled', String(!t)); a.style.opacity = t ? '' : '.5';
+}
+
+function renderReplies() {
+  const c = S.cur;
+  if (!c || !c.replies.length) { $('#replyBox').hidden = true; $('#understood').hidden = true; return; }
+  $('#understood').hidden = false; $('#understoodText').textContent = c.summary;
+  $('#replyBox').hidden = false;
+  $('#replies').innerHTML = c.replies.map((r, i) => `<button class="rep" role="radio" aria-checked="${c.pick === i}" data-action="use-reply" data-i="${i}"><span class="rd"></span><span>${esc(r)}</span></button>`).join('');
+  $('#replyText').value = c.reply; grow($('#replyText')); updateWa();
+}
+
+function processText(text, keepReply) {
+  const c = S.cur; if (!c) return;
+  c.text = text;
+  const a = analyze(text);
+  if (!a) { c.replies = []; c.summary = ''; c.reply = ''; c.pick = -1; }
+  else {
+    c.replies = a.replies; c.summary = a.summary;
+    if (!keepReply) { c.pick = 0; c.reply = a.replies[0]; }
+  }
+  renderReplies();
+  persistCurrent();
+}
+
+function persistCurrent(status) {
+  const c = S.cur; if (!c || !c.text) return;
+  let e = S.audios.find(x => x.id === c.id);
+  if (!e) { e = { id: c.id, name: c.name, ts: c.ts, status: 'pendiente' }; S.audios.push(e); if (S.audios.length > 200) S.audios.shift(); }
+  e.text = c.text; e.reply = c.reply || ''; e.summary = c.summary || ''; if (c.path) e.path = c.path; if (status) e.status = status;
+  store.set(K.audios, S.audios);
+  renderHome(); renderBadges();
+}
+
+async function openAudioFile(file, meta) {
+  if (S.cur && S.cur.url) URL.revokeObjectURL(S.cur.url);
+  const a = $('#audioEl'); a.pause(); setPlayIcon(false);
+  S.cur = { id: (meta && meta.id) || 'a' + Date.now(), name: (meta && meta.name) || file.name || 'Audio', ts: (meta && meta.ts) || Date.now(), path: meta && meta.path, file, url: URL.createObjectURL(file), text: '', replies: [], summary: '', reply: '', pick: -1, dur: 0, pcm: null, busy: false };
+  a.src = S.cur.url;
+  $('#acTitle').textContent = S.cur.name; $('#acSub').textContent = meta ? fmtDT(S.cur.ts) : 'Recién recibido'; $('#acBadge').textContent = 'Nuevo'; $('#acBadge').className = 'badge badge-primary';
+  $('#acPlayer').hidden = false;
+  $('#txText').value = ''; setStatus(null); $('#txBtn').hidden = true; $('#txHint').hidden = true;
+  renderReplies(); showAudioCard(true); go('mensajes');
+  try { const d = await decodeAudio(file); S.cur.pcm = d.pcm; S.cur.dur = d.dur; drawWave(d.pcm); $('#audioTime').textContent = mmss(d.dur); }
+  catch (_) { S.cur.pcm = null; drawWave(null); $('#audioTime').textContent = '–:––'; }
+  const ent = meta && meta.entry;
+  if (ent && ent.text) {
+    $('#txText').value = ent.text; grow($('#txText')); processText(ent.text);
+    if (ent.reply) { S.cur.reply = ent.reply; S.cur.pick = S.cur.replies.indexOf(ent.reply); renderReplies(); }
+    $('#acSub').textContent = 'Transcripción lista';
+  } else if (store.get(K.asr, false)) startTranscribe();
+  else { $('#txBtn').hidden = false; $('#txHint').hidden = false; $('#txBtnLabel').textContent = 'Transcribir este audio'; }
+}
+
+async function startTranscribe() {
+  const c = S.cur; if (!c || c.busy) return;
+  c.busy = true; $('#txBtn').hidden = true; $('#txHint').hidden = true; setStatus('spin', 'Preparando…');
+  try {
+    if (!c.pcm) throw new Error('decode');
+    const text = await transcribe(c.pcm, setStatus);
+    if (S.cur !== c) return;
+    if (!text) throw new Error('empty');
+    store.set(K.asr, true);
+    $('#txText').value = text; grow($('#txText')); setStatus(null); processText(text);
+    $('#acSub').textContent = 'Transcripción lista';
+  } catch (e) {
+    if (S.cur !== c) return;
+    const msg = e.message === 'decode' ? 'No pude leer este audio. Probá con otro archivo, o escribí el texto abajo.'
+      : e.message === 'empty' ? 'No se entendió nada en el audio. Podés escribir el texto abajo.'
+      : 'No pude cargar el motor de voz (necesita internet la primera vez). Podés escribir o pegar el texto abajo y Crika te sugiere respuestas igual.';
+    setStatus('err', msg);
+    $('#txBtn').hidden = false; $('#txBtnLabel').textContent = 'Reintentar';
+  } finally { c.busy = false; }
+}
+
+function openHistory(id) {
+  const e = S.audios.find(x => x.id === id); if (!e) return;
+  if (S.cur && S.cur.id === id) { go('mensajes'); return; }
+  const a = analyze(e.text) || { summary: '', replies: [] };
+  S.cur = { id: e.id, name: e.name, ts: e.ts, file: null, url: null, text: e.text, replies: a.replies, summary: a.summary, reply: e.reply || (a.replies[0] || ''), pick: -1, dur: 0, pcm: null, busy: false };
+  S.cur.pick = S.cur.replies.indexOf(S.cur.reply);
+  $('#audioEl').removeAttribute('src'); setPlayIcon(false);
+  $('#acTitle').textContent = e.name; $('#acSub').textContent = timeAgo(e.ts) + ' · sin el audio original';
+  $('#acBadge').textContent = e.status === 'respondido' ? 'Respondido' : e.status === 'descartado' ? 'Descartado' : 'Pendiente';
+  $('#acBadge').className = 'badge ' + (e.status === 'respondido' ? 'badge-ok' : e.status === 'descartado' ? 'badge-warn' : 'badge-primary');
+  $('#acPlayer').hidden = true; setStatus(null); $('#txBtn').hidden = true; $('#txHint').hidden = true;
+  $('#txText').value = e.text; renderReplies(); showAudioCard(true); go('mensajes'); grow($('#txText'));
+}
+
+function closeAudio() {
+  const a = $('#audioEl'); a.pause(); a.removeAttribute('src'); setPlayIcon(false);
+  if (S.cur && S.cur.url) URL.revokeObjectURL(S.cur.url);
+  S.cur = null; showAudioCard(false);
+}
+
+/* =====================================================
+   BANDEJA y ARCHIVOS (datos reales de la sesión)
+   ===================================================== */
+const statusBadge = s => s === 'respondido' ? '<span class="badge badge-ok">Respondido</span>' : s === 'descartado' ? '<span class="badge badge-warn">Descartado</span>' : '<span class="badge badge-primary"><i class="dot"></i>Pendiente</span>';
+
+function renderInbox() {
+  const rows = [];
+  S.audios.slice().reverse().forEach(a => rows.push(`
+    <button class="row" data-action="open-audio" data-id="${esc(a.id)}">
+      <span class="tile tone-amber">${ic('mic')}</span>
+      <span class="row-main"><h4>${esc(a.text.length > 48 ? a.text.slice(0, 48) + '…' : a.text)}</h4><p>Audio • ${timeAgo(a.ts)}</p></span>
+      ${statusBadge(a.status)}
+    </button>`));
+  if (S.lastScan) rows.push(`
+    <button class="row" data-target="limpieza">
+      <span class="tile tone-violet">${ic('copy')}</span>
+      <span class="row-main"><h4>Análisis de fotos</h4><p>${thousands(S.lastScan.photos)} fotos • ${S.lastScan.groups} ${S.lastScan.groups === 1 ? 'grupo' : 'grupos'} • ${timeAgo(S.lastScan.ts)}</p></span>
+      <span class="badge badge-ok">Listo</span>
+    </button>`);
+  $('#inboxList').innerHTML = rows.join('');
+  $('#inboxList').hidden = rows.length === 0; $('#inboxEmpty').hidden = rows.length !== 0;
+}
+
+function renderBadges() {
+  const n = S.audios.filter(a => a.status === 'pendiente').length;
+  $$('[data-pending]').forEach(b => { b.textContent = n; b.hidden = n === 0; });
+  const t = $('.icon-btn[data-target="bandeja"]'); if (t) t.setAttribute('aria-label', n ? `Bandeja inteligente, ${n} pendientes` : 'Bandeja inteligente');
+}
+
+function renderFiles() {
+  const q = S.query.trim().toLowerCase(), items = [];
+  S.photos.forEach(p => {
+    const g = S.groups.find(x => x.items.includes(p.id));
+    const dup = !!g && g.keeper !== p.id;
+    const tags = ['Fotos']; if (dup) tags.push('Duplicadas'); if (p.prot) tags.push('Protegidas');
+    items.push({ name: p.name, meta: `${fmtBytes(p.size)} • ${p.w}×${p.h} • ${fmtDate(p.ts)}`, tags, icon: 'image', tone: p.prot ? 'amber' : dup ? 'pink' : 'violet' });
+  });
+  S.audios.slice().reverse().forEach(a => items.push({ name: a.name, meta: `Audio • ${timeAgo(a.ts)}`, tags: ['Audios'], icon: 'mic', tone: 'green' }));
+  const list = items.filter(f => (S.filter === 'Todos' || f.tags.includes(S.filter)) && (!q || (f.name + ' ' + f.meta + ' ' + f.tags.join(' ')).toLowerCase().includes(q)));
+  $('#fileList').innerHTML = list.slice(0, 200).map(f => `
+    <div class="row">
+      <span class="tile tone-${f.tone}">${ic(f.icon)}</span>
+      <span class="row-main"><h4>${esc(f.name)}</h4><p>${esc(f.meta)}</p><span class="tags">${f.tags.map(t => `<span class="badge badge-primary">${t}</span>`).join('')}</span></span>
+    </div>`).join('') + (list.length > 200 ? `<div class="more-note">Mostrando 200 de ${thousands(list.length)}</div>` : '');
+  $('#fileList').hidden = list.length === 0; $('#fileEmpty').hidden = list.length !== 0;
+  if (!list.length) {
+    const none = items.length === 0;
+    $('#fileEmptyTitle').textContent = none ? 'Todavía no analizaste nada' : 'Sin resultados';
+    $('#fileEmptyText').textContent = none ? 'Cuando elijas fotos o audios, aparecen acá.' : 'Probá con otro filtro o palabra.';
+  }
+}
+
+/* =====================================================
+   INICIO
+   ===================================================== */
+const CIRC = 2 * Math.PI * 50;
+function renderHome() {
+  if (NAT) { renderHomeNative(); return; }
+  const sc = S.lastScan;
+  const pct = sc && sc.total ? Math.round(sc.bytes / sc.total * 100) : 0;
+  $('#ringBar').style.strokeDashoffset = CIRC * (1 - pct / 100);
+  $('#ringBar').style.opacity = pct > 0 ? '1' : '0';
+  $('#ringPct').textContent = sc ? pct + '%' : '–';
+  $('#ringSub').textContent = sc ? 'de lo analizado' : 'sin analizar';
+  $('#heroPhotos').textContent = sc ? thousands(sc.photos) : '0';
+  $('#heroSub').textContent = sc ? `${sc.groups} ${sc.groups === 1 ? 'grupo repetido' : 'grupos repetidos'} · ${timeAgo(sc.ts)}` : 'Todavía no analizaste nada';
+  $('#heroRecover').textContent = sc ? fmtBytes(sc.bytes) : '0 MB';
+  $('#analyzeLabel').textContent = sc ? 'Analizar más fotos' : 'Analizar mis fotos';
+  $('#statProt').textContent = thousands(S.prot.length);
+  $('#statAudios').textContent = thousands(S.audios.length);
+  const pend = S.audios.filter(a => a.status === 'pendiente').length;
+  $('#statAudiosSub').textContent = S.audios.length ? (pend ? `${pend} ${pend === 1 ? 'sin responder' : 'sin responder'}` : 'todos respondidos') : 'Elegí o compartí un audio';
+}
+
+function renderAll() { renderHome(); renderDups(); renderBadges(); renderMemories(); if (NAT) { renderWa(); renderWaAudios(); } if ($('#archivos').classList.contains('active')) renderFiles(); if ($('#bandeja').classList.contains('active')) renderInbox(); }
+
+/* =====================================================
+   INSTALAR
+   ===================================================== */
+let deferredPrompt = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isAndroid = () => /android/i.test(navigator.userAgent);
+function updateInstallUI() {
+  if (NAT) { $('#installBanner').hidden = true; $('#sideInstall').hidden = true; return; }
+  const standalone = isStandalone(), dismissed = store.get(K.dismiss, false) === true;
+  $('#installBanner').hidden = standalone || dismissed;
+  $('#sideInstall').hidden = standalone;
+}
+function installSheet(tab) {
+  tab = tab || (isIOS() ? 'ios' : isAndroid() ? 'android' : 'desktop');
+  const content = {
+    ios: `<ol class="steps">
+      <li><span>Abrí esta página en <b>Safari</b>.</span></li>
+      <li><span>Tocá el botón <b>Compartir</b> ${ic('share')} (abajo en el centro).</span></li>
+      <li><span>Elegí <b>Añadir a pantalla de inicio</b>.</span></li>
+      <li><span>Tocá <b>Añadir</b>. ¡Listo! Crika aparece como una app.</span></li></ol>`,
+    android: `<ol class="steps">
+      <li><span>Abrí esta página en <b>Chrome</b>.</span></li>
+      <li><span>Tocá el menú ${ic('dots')} (arriba a la derecha).</span></li>
+      <li><span>Elegí <b>Instalar app</b> o <b>Añadir a la pantalla principal</b>.</span></li>
+      <li><span>Confirmá con <b>Instalar</b>. Crika queda en tu cajón de apps.</span></li></ol>`,
+    desktop: `<ol class="steps">
+      <li><span>Abrí esta página en <b>Chrome</b> o <b>Edge</b>.</span></li>
+      <li><span>Buscá el ícono de instalar ${ic('download')} al final de la barra de direcciones.</span></li>
+      <li><span>Si no aparece: menú ${ic('dots')} → <b>Instalar Crika…</b></span></li>
+      <li><span>Confirmá. Se abre en su propia ventana.</span></li></ol>`,
+  };
+  const tabs = [['ios', 'iPhone'], ['android', 'Android'], ['desktop', 'Computadora']];
+  openSheet(`
+    <h3>Instalá Crika como app</h3>
+    <p class="sub">No hace falta descargarla de ninguna tienda.</p>
+    <div class="seg" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-action="tab" data-tab="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</div>
+    ${content[tab]}
+    <div class="sheet-actions"><button class="btn btn-primary" data-action="close">Entendido</button></div>`);
+}
+async function doInstall() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') toast('Instalando Crika…');
+    updateInstallUI();
+  } else installSheet();
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; updateInstallUI(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; updateInstallUI(); toast('¡Crika instalada!'); });
+
+/* =====================================================
+   Eventos
+   ===================================================== */
+document.addEventListener('click', e => {
+  const nav = e.target.closest('[data-target]');
+  if (nav) { go(nav.dataset.target); return; }
+
+  const chip = e.target.closest('[data-chip]');
+  if (chip) { S.filter = chip.dataset.chip; $$('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === chip))); renderFiles(); return; }
+
+  const sim = e.target.closest('[data-sim]');
+  if (sim) {
+    S.sim = sim.dataset.sim;
+    $$('[data-sim]').forEach(b => b.setAttribute('aria-selected', String(b === sim)));
+    if (S.photos.length) { regroup(); S.lastScan.groups = S.groups.length; S.lastScan.bytes = selBytes(); store.set(K.scan, S.lastScan); renderAll(); makeGroupThumbs(); }
+    return;
+  }
+
+  if (e.target === $('#sheetBack')) { closeSheet(); return; }
+
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  if (NAT && natAction(el.dataset.action, el)) return;
+  switch (el.dataset.action) {
+    case 'pick-photos':  $('#photoInput').click(); break;
+    case 'pick-protect': $('#protectInput').click(); break;
+    case 'pick-audio': case 'new-audio': $('#audioInput').click(); break;
+    case 'close': closeSheet(); break;
+    case 'install': doInstall(); break;
+    case 'dismiss-install': store.set(K.dismiss, true); updateInstallUI(); break;
+    case 'tab': installSheet(el.dataset.tab); break;
+    case 'sel-all':  S.sel = new Set(); S.groups.forEach(g => g.items.forEach(i => { if (i !== g.keeper && !S.photos[i].prot) S.sel.add(i); })); $$('input[data-sel]').forEach(c => { c.checked = S.sel.has(+c.dataset.sel); }); updateSummary(); break;
+    case 'sel-none': S.sel = new Set(); $$('input[data-sel]').forEach(c => { c.checked = false; }); updateSummary(); break;
+    case 'copy-list': copyText(listText()).then(ok => toast(ok ? `Copiaste la lista de ${S.sel.size} fotos` : 'No pude copiar la lista')); break;
+    case 'how-delete': howDeleteSheet(); break;
+    case 'protect': togglePhotoProtect(+el.dataset.i); break;
+    case 'mem': {
+      const q = S.prot.find(x => x.id === el.dataset.id); if (!q) break;
+      openSheet(`<h3>${esc(q.name)}</h3><p class="sub">Está protegida: Crika nunca la marca para borrar. ¿Querés quitarle la protección?</p>
+        <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Dejarla protegida</button><button class="btn btn-primary" data-action="unprotect" data-id="${esc(q.id)}">Quitar protección</button></div>`);
+      break;
+    }
+    case 'unprotect': S.prot = S.prot.filter(x => x.id !== el.dataset.id); saveProt(); S.photos.forEach(q => { q.prot = protMatch(q); }); if (S.photos.length) regroup(); closeSheet(); renderAll(); toast('Protección quitada'); break;
+
+    case 'play': {
+      const a = $('#audioEl'); if (!a.src) break;
+      if (a.paused) a.play().catch(() => toast('No pude reproducir este audio')); else a.pause();
+      break;
+    }
+    case 'transcribe': startTranscribe(); break;
+    case 'use-reply': { const c = S.cur; c.pick = +el.dataset.i; c.reply = c.replies[c.pick]; renderReplies(); persistCurrent(); break; }
+    case 'copy-reply': copyText($('#replyText').value).then(ok => toast(ok ? 'Respuesta copiada' : 'No pude copiar')); break;
+    case 'wa-sent': {
+      if (!$('#replyText').value.trim()) { e.preventDefault(); toast('Elegí o escribí una respuesta primero'); break; }
+      persistCurrent('respondido'); $('#acBadge').textContent = 'Respondido'; $('#acBadge').className = 'badge badge-ok'; break;
+    }
+    case 'discard-audio': persistCurrent('descartado'); closeAudio(); renderAll(); toast('Audio descartado'); break;
+    case 'open-audio': openHistory(el.dataset.id); break;
+  }
+});
+
+document.addEventListener('change', e => {
+  const c = e.target.closest('input[data-sel]');
+  if (c) { const i = +c.dataset.sel; if (c.checked) S.sel.add(i); else S.sel.delete(i); updateSummary(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+$('#fileSearch').addEventListener('input', e => { S.query = e.target.value; renderFiles(); });
+$('#photoInput').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) scanPhotos(f); });
+$('#protectInput').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) protectFiles(f); });
+$('#audioInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openAudioFile(f); });
+$('#txText').addEventListener('input', (() => { let t; return e => { grow(e.target); clearTimeout(t); t = setTimeout(() => processText(e.target.value, false), 450); }; })());
+$('#replyText').addEventListener('input', e => { grow(e.target); if (S.cur) { S.cur.reply = e.target.value; S.cur.pick = S.cur.replies.indexOf(e.target.value); $$('.rep').forEach((b, i) => b.setAttribute('aria-checked', String(i === S.cur.pick))); persistCurrent(); } updateWa(); });
+const au = $('#audioEl');
+let paintTimer = null;
+au.addEventListener('play', () => { setPlayIcon(true); clearInterval(paintTimer); paintTimer = setInterval(paintAudio, 120); });
+au.addEventListener('pause', () => { clearInterval(paintTimer); setPlayIcon(false); paintAudio(); });
+au.addEventListener('ended', () => { clearInterval(paintTimer); setPlayIcon(false); au.currentTime = 0; paintAudio(); });
+au.addEventListener('timeupdate', paintAudio);
+
+/* =====================================================
+   Compartir hacia Crika (Android, app instalada)
+   ===================================================== */
+async function takeShared() {
+  if (!('caches' in window)) return;
+  try {
+    const cache = await caches.open('crika-shared');
+    const keys = await cache.keys(); if (!keys.length) return;
+    const files = [];
+    for (const k of keys) {
+      const res = await cache.match(k); const blob = await res.blob();
+      const name = decodeURIComponent(res.headers.get('X-Filename') || 'compartido');
+      files.push(new File([blob], name, { type: blob.type, lastModified: Date.now() }));
+      await cache.delete(k);
+    }
+    const audio = files.find(f => /^audio\//.test(f.type) || /\.(opus|ogg|m4a|aac|mp3|wav|amr|3gp)$/i.test(f.name));
+    const images = files.filter(isImage);
+    if (audio) openAudioFile(audio); else if (images.length) scanPhotos(images);
+  } catch (_) {}
+}
+
+/* =====================================================
+   MODO APP ANDROID: WhatsApp en el teléfono
+   (solo se activa cuando Crika corre como app Android)
+   ===================================================== */
+const W = {
+  access: false, scanning: false, scanned: false, ts: null,
+  roots: [], files: [], byPath: new Map(), dup: [], dupBusy: false,
+  view: 'home', cat: null, filter: 'all', sort: 'size', shown: 90,
+  sel: new Set(), prot: new Set(store.get(K.waProt, [])), sum: store.get(K.waScan, null),
+  batch: null,
+};
+const CATS = {
+  vid: { l: 'Videos', ic: 'video', tone: 'pink', thumb: true },
+  img: { l: 'Fotos', ic: 'image', tone: 'violet', thumb: true },
+  sts: { l: 'Estados', ic: 'phone', tone: 'violet', thumb: true },
+  gif: { l: 'GIFs', ic: 'sparkles', tone: 'amber', thumb: true },
+  stk: { l: 'Stickers', ic: 'heart', tone: 'amber', thumb: true },
+  ptt: { l: 'Notas de voz', ic: 'mic', tone: 'green' },
+  aud: { l: 'Audios', ic: 'mic', tone: 'green' },
+  doc: { l: 'Documentos', ic: 'file', tone: 'blue' },
+  otr: { l: 'Otros', ic: 'folder', tone: 'blue' },
+};
+const DAY = 864e5, MB = 1048576;
+const FILTERS = [['all', 'Todos'], ['o30', 'Más de 30 días'], ['o90', 'Más de 90 días'], ['big', 'Más de 5 MB'], ['recv', 'Recibidos'], ['sent', 'Enviados']];
+const SORTS = [['size', 'Más pesados'], ['new', 'Más nuevos'], ['old', 'Más viejos']];
+
+/* ---- llamadas al puente nativo ---- */
+const natPending = new Map(); let natSeq = 1;
+if (NAT) window.__nat = (id, ok, payload) => {
+  const p = natPending.get(id); if (!p) return; natPending.delete(id);
+  ok ? p.res(payload) : p.rej(new Error(payload));
+};
+const natCall = (m, ...a) => new Promise((res, rej) => {
+  const id = natSeq++; natPending.set(id, { res, rej });
+  try { NAT[m](id, ...a); } catch (e) { natPending.delete(id); rej(e); }
+});
+const thumbUrl = (p, s) => '/__t?s=' + (s || 260) + '&p=' + encodeURIComponent(p);
+const fileUrl = p => '/__f?p=' + encodeURIComponent(p);
+const isProt = f => W.prot.has(f.path);
+
+function catStats() {
+  const st = {};
+  W.files.forEach(f => { const c = st[f.cat] || (st[f.cat] = { n: 0, bytes: 0 }); c.n++; c.bytes += f.size; });
+  return st;
+}
+const totalBytes = () => W.files.reduce((a, f) => a + f.size, 0);
+function dupInfo() {
+  let extra = 0, files = 0;
+  W.dup.forEach(g => g.slice(1).forEach(p => { const f = W.byPath.get(p); if (f && !isProt(f)) { extra += f.size; files++; } }));
+  return { groups: W.dup.length, extra, files };
+}
+const selBytesWa = () => [...W.sel].reduce((a, p) => a + ((W.byPath.get(p) || {}).size || 0), 0);
+
+function saveSummary() {
+  const di = dupInfo();
+  W.sum = { ts: W.ts || Date.now(), count: W.files.length, bytes: totalBytes(), dupBytes: di.extra, dupFiles: di.files };
+  store.set(K.waScan, W.sum);
+}
+
+/* ---- escaneo ---- */
+async function nativeScan(quiet) {
+  if (W.scanning) return;
+  W.access = NAT.hasAccess();
+  if (!W.access) { renderAll(); if (!quiet) permSheet(); return; }
+  W.scanning = true; W.sel = new Set(); renderAll();
+  try {
+    const d = JSON.parse(await natCall('scan'));
+    W.roots = d.roots;
+    W.files = d.files.map(a => ({ path: d.roots[a[0]] + '/' + a[1], name: a[1].split('/').pop(), size: a[2], m: a[3], cat: a[4], sent: !!a[5] }));
+    W.byPath = new Map(W.files.map(f => [f.path, f]));
+    W.ts = Date.now(); W.scanned = true; W.dup = []; W.view = 'home'; W.cat = null;
+    saveSummary();
+  } catch (e) {
+    W.scanned = false; if (!quiet) toast('No pude revisar las carpetas de WhatsApp');
+  }
+  W.scanning = false; renderAll();
+  if (W.scanned) {
+    if (!W.files.length && !quiet) toast('No encontré archivos de WhatsApp en este teléfono');
+    findDupes();
+  }
+}
+async function findDupes() {
+  if (W.dupBusy || !W.files.length) return;
+  W.dupBusy = true; renderAll();
+  try { W.dup = JSON.parse(await natCall('dupes')); } catch (_) { W.dup = []; }
+  W.dupBusy = false; saveSummary(); renderAll();
+}
+function permSheet() {
+  openSheet(`
+    <h3>Permiso para ver WhatsApp</h3>
+    <p class="sub">Para revisar las carpetas donde WhatsApp guarda tus fotos, videos y audios, Android necesita que actives el permiso <b>“Acceso a todos los archivos”</b> para Crika.</p>
+    <ol class="steps">
+      <li><span>Tocá <b>Dar permiso</b>.</span></li>
+      <li><span>Activá el interruptor de <b>Crika</b>.</span></li>
+      <li><span>Volvé a Crika: empieza a revisar sola.</span></li>
+    </ol>
+    <p class="hint">Crika solo toca las carpetas de WhatsApp. Nada sale de tu teléfono.</p>
+    <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Ahora no</button><button class="btn btn-primary" data-action="wa-perm">Dar permiso</button></div>`);
+}
+window.__natFocus = () => {
+  if (!NAT) return;
+  const had = W.access; W.access = NAT.hasAccess();
+  if (W.access && !had) { closeSheet(); nativeScan(); } else renderWa();
+};
+
+/* ---- render: tarjeta de WhatsApp en Limpieza ---- */
+function filtered() {
+  let l = W.files.filter(f => f.cat === W.cat);
+  const now = Date.now();
+  if (W.filter === 'o30') l = l.filter(f => now - f.m > 30 * DAY);
+  else if (W.filter === 'o90') l = l.filter(f => now - f.m > 90 * DAY);
+  else if (W.filter === 'big') l = l.filter(f => f.size > 5 * MB);
+  else if (W.filter === 'recv') l = l.filter(f => !f.sent);
+  else if (W.filter === 'sent') l = l.filter(f => f.sent);
+  l.sort(W.sort === 'size' ? (a, b) => b.size - a.size : W.sort === 'new' ? (a, b) => b.m - a.m : (a, b) => a.m - b.m);
+  return l;
+}
+const P = p => esc(p);
+
+function itemHTML(f, thumb) {
+  const checked = W.sel.has(f.path), prot = isProt(f), cat = CATS[f.cat] || CATS.otr;
+  const chk = prot ? '' : `<input type="checkbox" data-wasel="${P(f.path)}" ${checked ? 'checked' : ''} aria-label="Marcar ${esc(f.name)} para borrar">`;
+  const star = `<button class="ph-star" data-action="wa-star" data-p="${P(f.path)}" aria-pressed="${prot}" aria-label="${prot ? 'Quitar protección' : 'Proteger'}">${ic('star')}</button>`;
+  const cls = prot ? 'prot' : checked ? 'sel' : '';
+  if (thumb) {
+    return `<div class="ph ${cls}" data-wap="${P(f.path)}">
+      <div class="ph-img"><img loading="lazy" decoding="async" alt="" src="${thumbUrl(f.path)}" onerror="this.style.visibility='hidden'">
+        ${prot ? '' : `<label class="ph-chk">${chk}</label>`}${star}
+        ${prot ? '<span class="ph-tag prot">Protegido</span>' : f.sent ? '<span class="ph-tag keep">Enviado</span>' : ''}
+      </div>
+      <div class="ph-meta"><b>${fmtBytes(f.size)}</b>${fmtDate(f.m)}</div></div>`;
+  }
+  return `<label class="row wa-row ${cls}" data-wap="${P(f.path)}">
+    ${prot ? '<span class="wa-chk-sp"></span>' : chk}
+    <span class="tile tone-${cat.tone}">${ic(cat.ic)}</span>
+    <span class="row-main"><h4>${esc(f.name)}</h4><p>${fmtBytes(f.size)} · ${fmtDate(f.m)}${f.sent ? ' · Enviado' : ''}${prot ? ' · Protegido' : ''}</p></span>
+    ${star}
+  </label>`;
+}
+
+function barHTML() {
+  return `<div class="wa-bar" id="waBar"><div class="wa-bar-info"><b id="waSelBytes">0 MB</b><small id="waSelCount">Nada marcado</small></div>
+    <button class="btn btn-ghost btn-sm" data-action="wa-selnone">Ninguno</button>
+    <button class="btn btn-danger btn-sm" data-action="wa-delete" id="waDelBtn">Borrar</button></div>`;
+}
+function updateBar() {
+  const b = $('#waSelBytes'); if (!b) return;
+  b.textContent = fmtBytes(selBytesWa());
+  $('#waSelCount').textContent = W.sel.size ? `${thousands(W.sel.size)} ${W.sel.size === 1 ? 'archivo marcado' : 'archivos marcados'}` : 'Nada marcado';
+  $('#waBar').classList.toggle('on', W.sel.size > 0);
+  $('#waDelBtn').disabled = W.sel.size === 0;
+}
+
+function renderWa() {
+  const card = $('#waCard'); if (!NAT) return;
+  card.hidden = false;
+  const el = $('#waBody');
+  W.access = NAT.hasAccess();
+  const head = (t, p) => `<div class="scan-top"><span class="tile tone-green">${ic('phone')}</span><div><h3>${t}</h3><p>${p}</p></div></div>`;
+
+  if (!W.access) {
+    el.innerHTML = head('Tu WhatsApp en este teléfono', 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos, audios y documentos, y te muestra qué ocupa espacio.') +
+      `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}Dar permiso y analizar</button>
+       <p class="hint">Solo toca las carpetas de WhatsApp. No se sube nada a internet.</p>`;
+    return;
+  }
+  if (W.scanning) {
+    el.innerHTML = head('Revisando WhatsApp…', 'Buscando fotos, videos y audios guardados en tu teléfono.') +
+      `<div class="progress"><div class="progress-bar"><i style="width:100%;opacity:.5"></i></div><small>Esto tarda unos segundos.</small></div>`;
+    return;
+  }
+  if (!W.scanned) {
+    el.innerHTML = head('Tu WhatsApp en este teléfono', 'Analizá para ver cuánto espacio ocupan tus fotos, videos y audios.') +
+      `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}Analizar WhatsApp</button>`;
+    return;
+  }
+  if (!W.files.length) {
+    el.innerHTML = head('No encontré archivos', 'No hay fotos, videos ni audios de WhatsApp guardados en este teléfono (o WhatsApp los guarda en otra ubicación).') +
+      `<button class="btn btn-soft btn-block" data-action="wa-start">Volver a analizar</button>`;
+    return;
+  }
+
+  if (W.view === 'home') {
+    const st = catStats(), di = dupInfo();
+    const cats = Object.keys(st).sort((a, b) => st[b].bytes - st[a].bytes);
+    el.innerHTML = `
+      <div class="wa-total">
+        <small>WhatsApp ocupa en tu teléfono</small><b>${fmtBytes(totalBytes())}</b>
+        <small>${thousands(W.files.length)} archivos · ${timeAgo(W.ts)}</small>
+      </div>
+      <div class="wa-cats card flush" style="box-shadow:none;border-radius:16px">
+        ${cats.map(k => { const c = CATS[k] || CATS.otr; return `<button class="row" data-action="wa-cat" data-k="${k}">
+          <span class="tile tone-${c.tone}">${ic(c.ic)}</span>
+          <span class="row-main"><h4>${c.l}</h4><p>${thousands(st[k].n)} ${st[k].n === 1 ? 'archivo' : 'archivos'}</p></span>
+          <b class="wa-size">${fmtBytes(st[k].bytes)}</b><span class="wa-chev">${ic('chevron')}</span></button>`; }).join('')}
+        <button class="row" data-action="wa-dups">
+          <span class="tile tone-pink">${ic('copy')}</span>
+          <span class="row-main"><h4>Archivos idénticos</h4><p>${W.dupBusy ? 'Buscando repetidos…' : di.groups ? `${thousands(di.files)} repetidos en ${di.groups} ${di.groups === 1 ? 'grupo' : 'grupos'}` : 'No encontré repetidos'}</p></span>
+          <b class="wa-size">${di.extra ? fmtBytes(di.extra) : ''}</b><span class="wa-chev">${ic('chevron')}</span></button>
+      </div>
+      <button class="btn btn-soft btn-block" style="margin-top:14px" data-action="wa-start">Volver a analizar</button>
+      <p class="hint">WhatsApp no guarda de qué chat viene cada archivo, así que Crika los agrupa por tipo, tamaño y fecha. Nada se borra sin que lo confirmes.</p>`;
+    return;
+  }
+
+  if (W.view === 'cat') {
+    const c = CATS[W.cat] || CATS.otr, all = filtered(), list = all.slice(0, W.shown);
+    const bytes = all.reduce((a, f) => a + f.size, 0);
+    el.innerHTML = `
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>${c.l}</h3></div>
+      <p class="wa-sub">${thousands(all.length)} ${all.length === 1 ? 'archivo' : 'archivos'} · ${fmtBytes(bytes)}</p>
+      <div class="chips wa-chips" role="group" aria-label="Filtros">${FILTERS.map(([k, l]) => `<button class="chip" data-action="wa-filter" data-k="${k}" aria-pressed="${W.filter === k}">${l}</button>`).join('')}</div>
+      <div class="seg tight" role="group" aria-label="Orden">${SORTS.map(([k, l]) => `<button data-action="wa-sort" data-k="${k}" aria-selected="${W.sort === k}">${l}</button>`).join('')}</div>
+      <div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-selall">Marcar todo lo que se ve (${thousands(all.filter(f => !isProt(f)).length)})</button></div>
+      ${all.length ? (c.thumb ? `<div class="photos wa-photos">${list.map(f => itemHTML(f, true)).join('')}</div>` : `<div class="card flush wa-list">${list.map(f => itemHTML(f, false)).join('')}</div>`) : '<div class="empty" style="padding:26px 10px"><p>No hay archivos con este filtro.</p></div>'}
+      ${all.length > list.length ? `<button class="btn btn-ghost btn-block" style="margin-top:12px" data-action="wa-more">Ver más (${thousands(all.length - list.length)})</button>` : ''}
+      ${barHTML()}`;
+    updateBar();
+    return;
+  }
+
+  if (W.view === 'dups') {
+    const groups = W.dup.map(g => g.filter(p => W.byPath.has(p))).filter(g => g.length > 1);
+    const di = dupInfo();
+    el.innerHTML = `
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>Archivos idénticos</h3></div>
+      <p class="wa-sub">${groups.length ? `${thousands(di.files)} repetidos en ${groups.length} ${groups.length === 1 ? 'grupo' : 'grupos'} · ${fmtBytes(di.extra)} para liberar` : 'No hay archivos repetidos.'}</p>
+      ${groups.length ? `<div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-dupsel">Marcar los repetidos</button></div>` : ''}
+      ${groups.slice(0, W.shown).map((g, gi) => {
+        const keep = W.byPath.get(g[0]), c = CATS[keep.cat] || CATS.otr;
+        return `<article class="card group"><header><h4>${c.l} · ${g.length} copias</h4><span class="badge badge-primary">${fmtBytes(keep.size)} c/u</span></header>
+          <div class="${c.thumb ? 'photos wa-photos' : 'wa-list'}">${g.map((p, i) => { const f = W.byPath.get(p); return `<div class="wa-dupitem">${itemHTML(f, !!c.thumb)}${i === 0 ? '<span class="wa-keep">Original</span>' : ''}</div>`; }).join('')}</div></article>`;
+      }).join('')}
+      ${groups.length > W.shown ? `<button class="btn btn-ghost btn-block" data-action="wa-more">Ver más</button>` : ''}
+      ${barHTML()}`;
+    updateBar();
+  }
+}
+
+/* ---- acciones ---- */
+function toggleProtWa(p) {
+  if (W.prot.has(p)) W.prot.delete(p); else { W.prot.add(p); W.sel.delete(p); }
+  store.set(K.waProt, [...W.prot]);
+  renderWa(); saveSummary(); renderHome();
+}
+
+async function doDelete() {
+  const paths = [...W.sel].filter(p => W.byPath.has(p) && !W.prot.has(p));
+  if (!paths.length) return;
+  $('#sheetBody').innerHTML = `<h3>Borrando…</h3><div class="status" style="margin-top:14px"><span class="spinner"></span><span>Un momento, no cierres Crika.</span></div>`;
+  try {
+    const r = JSON.parse(await natCall('del', JSON.stringify(paths)));
+    if (r.failed > 0) { W.scanned = false; await nativeScan(true); } else {
+      const gone = new Set(paths);
+      W.files = W.files.filter(f => !gone.has(f.path)); paths.forEach(p => W.byPath.delete(p));
+      W.dup = W.dup.map(g => g.filter(p => !gone.has(p))).filter(g => g.length > 1);
+    }
+    W.sel = new Set(); saveSummary(); closeSheet(); renderAll();
+    toast(r.deleted ? `Liberaste ${fmtBytes(r.freed)}${r.failed ? ` (${r.failed} no se pudieron borrar)` : ''}` : 'No pude borrar esos archivos');
+  } catch (e) { closeSheet(); toast('No pude borrar. Revisá el permiso de Crika.'); }
+}
+function confirmDelete() {
+  if (!W.sel.size) { toast('Marcá primero lo que querés borrar'); return; }
+  const n = W.sel.size;
+  openSheet(`<h3>¿Borrar ${thousands(n)} ${n === 1 ? 'archivo' : 'archivos'}?</h3>
+    <p class="sub">Vas a liberar <b>${fmtBytes(selBytesWa())}</b>. Se borran de tu teléfono y <b>no se pueden recuperar</b>. En WhatsApp esos archivos van a aparecer como “no disponible”.</p>
+    <p class="hint">Consejo: si son fotos o videos que querés conservar, revisá antes que estén respaldados en Google Fotos.</p>
+    <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cancelar</button><button class="btn btn-primary" data-action="wa-confirm">Sí, borrar</button></div>`);
+}
+
+function natAction(a, el) {
+  switch (a) {
+    case 'wa-start': nativeScan(); return true;
+    case 'wa-perm': closeSheet(); NAT.requestAccess(); return true;
+    case 'wa-cat': W.view = 'cat'; W.cat = el.dataset.k; W.filter = 'all'; W.sort = 'size'; W.shown = 90; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-dups': W.view = 'dups'; W.shown = 30; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-back': W.view = 'home'; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-filter': W.filter = el.dataset.k; W.shown = 90; renderWa(); return true;
+    case 'wa-sort': W.sort = el.dataset.k; W.shown = 90; renderWa(); return true;
+    case 'wa-more': W.shown += 90; renderWa(); return true;
+    case 'wa-selall': filtered().forEach(f => { if (!isProt(f)) W.sel.add(f.path); }); renderWa(); return true;
+    case 'wa-selnone': W.sel = new Set(); renderWa(); return true;
+    case 'wa-dupsel': W.sel = new Set(); W.dup.forEach(g => g.slice(1).forEach(p => { const f = W.byPath.get(p); if (f && !isProt(f)) W.sel.add(p); })); renderWa(); return true;
+    case 'wa-star': toggleProtWa(el.dataset.p); return true;
+    case 'wa-delete': confirmDelete(); return true;
+    case 'wa-confirm': doDelete(); return true;
+    case 'wa-audio-batch': waBatch(); return true;
+    case 'wa-audio-open': waOpenAudio(el.dataset.p); return true;
+    case 'wa-audio-scan': nativeScan(); return true;
+  }
+  return false;
+}
+if (NAT) document.addEventListener('change', e => {
+  const c = e.target.closest('input[data-wasel]'); if (!c) return;
+  const p = c.dataset.wasel; if (c.checked) W.sel.add(p); else W.sel.delete(p);
+  const holder = c.closest('[data-wap]'); if (holder) holder.classList.toggle('sel', c.checked);
+  updateBar();
+});
+
+/* ---- inicio ---- */
+function renderHomeNative() {
+  const sum = W.scanned ? { ts: W.ts, bytes: totalBytes(), count: W.files.length, dupBytes: dupInfo().extra } : W.sum;
+  const pct = sum && sum.bytes ? Math.round(sum.dupBytes / sum.bytes * 100) : 0;
+  $('#ringBar').style.strokeDashoffset = CIRC * (1 - pct / 100);
+  $('#ringBar').style.opacity = pct > 0 ? '1' : '0';
+  $('#ringPct').textContent = sum ? (pct === 0 && sum.dupBytes > 0 ? '<1%' : pct + '%') : '–';
+  $('#ringSub').textContent = sum ? 'son repetidos' : 'sin analizar';
+  $('#heroLabel').textContent = 'WhatsApp ocupa';
+  $('#heroPhotos').textContent = sum ? fmtBytes(sum.bytes) : '0 MB';
+  $('#heroSub').textContent = sum ? `${thousands(sum.count)} archivos · ${timeAgo(sum.ts)}` : 'Todavía no analizaste nada';
+  $('#heroRecLabel').textContent = 'Repetidos que podés liberar';
+  $('#heroRecover').textContent = sum ? fmtBytes(sum.dupBytes) : '0 MB';
+  $('#analyzeLabel').textContent = sum ? 'Analizar de nuevo' : 'Analizar WhatsApp';
+  $('#analyzeBtn').dataset.action = 'wa-start';
+  $('#heroHint').textContent = 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y audios. No se sube nada.';
+  $('#statProt').textContent = thousands(S.prot.length + W.prot.size);
+  $('#statAudios').textContent = thousands(S.audios.length);
+  const nuevos = W.scanned ? waAudioList().filter(f => !waDone(f)).length : 0;
+  const pend = S.audios.filter(a => a.status === 'pendiente').length;
+  $('#statAudiosSub').textContent = nuevos ? `${nuevos} ${nuevos === 1 ? 'audio nuevo' : 'audios nuevos'} sin escuchar` : pend ? `${pend} sin responder` : S.audios.length ? 'todos respondidos' : 'Buscá audios en Mensajes';
+}
+
+/* ---- audios de WhatsApp ---- */
+const waAudioList = () => W.files.filter(f => (f.cat === 'ptt' || f.cat === 'aud') && !f.sent && f.size <= 4 * MB).sort((a, b) => b.m - a.m);
+const waEntry = f => S.audios.find(a => a.id === 'w:' + f.path);
+const waDone = f => { const e = waEntry(f); return !!(e && e.text); };
+const audioBlob = async p => { const r = await fetch(fileUrl(p)); if (!r.ok) throw new Error('read'); return r.blob(); };
+
+function renderWaAudios() {
+  const card = $('#waAudioCard'); if (!NAT) return;
+  card.hidden = false;
+  const el = $('#waAudioBody');
+  const head = `<div class="scan-top"><span class="tile tone-amber">${ic('mic')}</span><div><h3>Audios de WhatsApp</h3><p>Crika encuentra tus notas de voz, las escucha y te resume cada una con respuestas listas.</p></div></div>`;
+  if (!NAT.hasAccess() || !W.scanned) {
+    el.innerHTML = head + (W.scanning ? `<div class="status"><span class="spinner"></span><span>Buscando audios…</span></div>` : `<button class="btn btn-primary btn-block" data-action="wa-audio-scan">${ic('mic')}Buscar mis audios</button>`);
+    return;
+  }
+  const list = waAudioList(), nuevos = list.filter(f => !waDone(f));
+  const b = W.batch;
+  if (!list.length) { el.innerHTML = head + `<div class="status">No encontré notas de voz recibidas en este teléfono.</div><button class="btn btn-soft btn-block" style="margin-top:10px" data-action="wa-audio-scan">Buscar de nuevo</button>`; return; }
+  const top = b
+    ? `<div class="progress"><div class="progress-bar"><i style="width:${b.total ? Math.round(b.done / b.total * 100) : 0}%"></i></div><small>${esc(b.msg)}</small></div>`
+    : nuevos.length
+      ? `<button class="btn btn-primary btn-block" data-action="wa-audio-batch">${ic('sparkles')}Resumir los ${Math.min(nuevos.length, 8)} más recientes</button><p class="hint">${thousands(nuevos.length)} ${nuevos.length === 1 ? 'audio sin escuchar' : 'audios sin escuchar'}. La primera vez se descarga el motor de voz (unos 75 MB).</p>`
+      : `<div class="status">Ya escuché todos tus audios recientes.</div>`;
+  el.innerHTML = head + top + `<div class="card flush wa-alist">${list.slice(0, 40).map(f => {
+    const e = waEntry(f), ok = e && e.text;
+    const badge = !ok ? '<span class="badge badge-primary"><i class="dot"></i>Nuevo</span>' : e.status === 'respondido' ? '<span class="badge badge-ok">Respondido</span>' : '<span class="badge badge-warn">Resumido</span>';
+    return `<button class="row" data-action="wa-audio-open" data-p="${P(f.path)}"><span class="tile tone-amber">${ic('mic')}</span>
+      <span class="row-main"><span class="wa-badge-row">${badge}<small>${fmtDT(f.m)} · ${fmtBytes(f.size)}</small></span><h4>${ok && e.summary ? esc(e.summary) : 'Nota de voz sin escuchar'}</h4>${ok ? `<p>“${esc(e.text.length > 60 ? e.text.slice(0, 60) + '…' : e.text)}”</p>` : ''}</span></button>`;
+  }).join('')}</div>`;
+}
+
+async function waBatch() {
+  if (W.batch) return;
+  const todo = waAudioList().filter(f => !waDone(f)).slice(0, 8);
+  if (!todo.length) return;
+  W.batch = { done: 0, total: todo.length, msg: 'Preparando…' }; renderWaAudios();
+  const setMsg = m => { W.batch.msg = m; renderWaAudios(); };
+  let fails = 0, tried = 0;
+  for (const f of todo) {
+    tried++;
+    try {
+      setMsg(`Escuchando audio ${W.batch.done + 1} de ${todo.length}…`);
+      const d = await decodeAudio(await audioBlob(f.path));
+      const text = await transcribe(d.pcm, (k, m) => { if (k === 'spin') setMsg(m); });
+      if (!text) throw new Error('empty');
+      store.set(K.asr, true);
+      const a = analyze(text);
+      let e = waEntry(f);
+      if (!e) { e = { id: 'w:' + f.path, name: 'Nota de voz · ' + fmtDT(f.m), ts: f.m, status: 'pendiente', path: f.path }; S.audios.push(e); if (S.audios.length > 200) S.audios.shift(); }
+      e.text = text; e.summary = a.summary; e.reply = a.replies[0];
+      store.set(K.audios, S.audios);
+    } catch (_) { fails++; if (fails >= 2 && fails === tried) break; }
+    W.batch.done++; renderWaAudios(); renderHome(); renderBadges();
+  }
+  W.batch = null; renderAll();
+  toast(fails ? (fails === todo.length ? 'No pude transcribir. Revisá tu internet (la primera vez hace falta).' : `Listo. ${fails} no se pudieron leer.`) : 'Audios resumidos');
+}
+
+async function waOpenAudio(p) {
+  const f = W.byPath.get(p); if (!f) return;
+  try {
+    const blob = await audioBlob(p), ent = waEntry(f);
+    const file = new File([blob], f.name, { type: blob.type || 'audio/ogg', lastModified: f.m });
+    openAudioFile(file, { id: 'w:' + p, name: 'Nota de voz · ' + fmtDT(f.m), ts: f.m, path: p, entry: ent });
+  } catch (_) { toast('No pude abrir ese audio'); }
+}
+
+/* ---- compartir hacia Crika y botón atrás ---- */
+if (NAT) {
+  window.__natShared = async () => {
+    const n = NAT.takeShared(); if (!n) return;
+    try {
+      const r = await fetch('/__c?n=' + encodeURIComponent(n)); const b = await r.blob();
+      const f = new File([b], n, { type: b.type, lastModified: Date.now() });
+      if (isImage(f)) scanPhotos([f]); else openAudioFile(f);
+    } catch (_) { toast('No pude abrir lo que compartiste'); }
+  };
+  window.__back = () => {
+    if ($('#sheetBack').classList.contains('open')) { closeSheet(); return true; }
+    if (W.view !== 'home' && $('#limpieza').classList.contains('active')) { W.view = 'home'; W.sel = new Set(); renderWa(); return true; }
+    if (!$('#home').classList.contains('active')) { go('home'); return true; }
+    return false;
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.__natFocus(); });
+}
+
+if (NAT) {
+  $('#howBox').innerHTML = `
+    <div><h4>${ic('phone')}Limpieza de WhatsApp</h4><ol class="steps">
+      <li><span>Tocá <b>Analizar WhatsApp</b> y dale el permiso.</span></li>
+      <li><span>Crika mide qué ocupa espacio y encuentra archivos idénticos.</span></li>
+      <li><span>Marcás lo que sobra y confirmás: se borra del teléfono.</span></li></ol></div>
+    <div><h4>${ic('mic')}Audios de WhatsApp</h4><ol class="steps">
+      <li><span>En <b>Mensajes</b>, Crika encuentra tus notas de voz nuevas.</span></li>
+      <li><span>Las escucha, las transcribe y te las resume.</span></li>
+      <li><span>Elegís una respuesta sugerida y la enviás por WhatsApp.</span></li></ol></div>`;
+  $('#howNote').textContent = 'Crika no lee tus chats: trabaja con los archivos que WhatsApp guarda en tu teléfono. Para saber cuál está sin leer en WhatsApp, mirá los que figuran como “Nuevo”.';
+}
+
+
+/* =====================================================
+   Arranque (todo en cero hasta que analices algo)
+   ===================================================== */
+drawWave(null);
+renderAll();
+renderFiles();
+updateInstallUI();
+const ringTarget = $('#ringBar').style.strokeDashoffset;
+$('#ringBar').style.strokeDashoffset = CIRC;
+requestAnimationFrame(() => requestAnimationFrame(() => { $('#ringBar').style.strokeDashoffset = ringTarget; }));
+
+const qs = new URLSearchParams(location.search);
+if (qs.get('s')) go(qs.get('s'));
+if (qs.get('shared')) { takeShared(); history.replaceState(null, '', location.pathname); }
+
+if (!NAT && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+})();
+</script>
+</body>
+</html>
