@@ -585,6 +585,11 @@ textarea.tx { overflow: hidden; }
 .wa-chips { flex-wrap: wrap; overflow: visible; }
 .wa-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
 .wa-badge-row small { color: var(--muted); font-size: .76rem; }
+.wa-scope { margin: 0 0 14px; }
+.wa-note { background: var(--warn-soft); color: var(--text); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; font-size: .84rem; }
+.wa-note > b { display: block; margin-bottom: 4px; color: var(--warn); }
+.wa-bar-info b { white-space: nowrap; }
+.wa-note p { margin: 0 0 10px; color: var(--muted); line-height: 1.4; }
 </style>
 </head>
 
@@ -1764,26 +1769,32 @@ async function takeShared() {
    MODO APP ANDROID: WhatsApp en el teléfono
    (solo se activa cuando Crika corre como app Android)
    ===================================================== */
-const W = {
-  access: false, scanning: false, scanned: false, ts: null,
-  roots: [], files: [], byPath: new Map(), dup: [], dupBusy: false,
-  view: 'home', cat: null, filter: 'all', sort: 'size', shown: 90,
-  sel: new Set(), prot: new Set(store.get(K.waProt, [])), sum: store.get(K.waScan, null),
-  batch: null,
-};
+const mkState = (scope, sumKey) => ({
+  scope, access: false, scanning: false, scanned: false, ts: null,
+  roots: [], files: [], byPath: new Map(), dup: [], dupBusy: false, disk: null, folders: [], allBytes: 0, allCount: 0,
+  view: 'home', back: 'home', cat: null, folder: null, title: null, note: null, filter: 'all', sort: 'size', shown: 90,
+  sel: new Set(), sum: store.get(sumKey, null), batch: null,
+});
+const PROT = new Set(store.get(K.waProt, []));
+const KEY_PH = 'crika-phscan-v1', KEY_SCOPE = 'crika-scope-v1';
+const WA = mkState('wa', K.waScan), PH = mkState('ph', KEY_PH);
+let W = store.get(KEY_SCOPE, 'ph') === 'wa' ? WA : PH;
 const CATS = {
   vid: { l: 'Videos', ic: 'video', tone: 'pink', thumb: true },
   img: { l: 'Fotos', ic: 'image', tone: 'violet', thumb: true },
   sts: { l: 'Estados', ic: 'phone', tone: 'violet', thumb: true },
   gif: { l: 'GIFs', ic: 'sparkles', tone: 'amber', thumb: true },
   stk: { l: 'Stickers', ic: 'heart', tone: 'amber', thumb: true },
+  apk: { l: 'Instaladores de apps (APK)', ic: 'file', tone: 'pink' },
+  zip: { l: 'Archivos comprimidos', ic: 'folder', tone: 'amber' },
   ptt: { l: 'Notas de voz', ic: 'mic', tone: 'green' },
   aud: { l: 'Audios', ic: 'mic', tone: 'green' },
   doc: { l: 'Documentos', ic: 'file', tone: 'blue' },
   otr: { l: 'Otros', ic: 'folder', tone: 'blue' },
 };
 const DAY = 864e5, MB = 1048576;
-const FILTERS = [['all', 'Todos'], ['o30', 'Más de 30 días'], ['o90', 'Más de 90 días'], ['big', 'Más de 5 MB'], ['recv', 'Recibidos'], ['sent', 'Enviados']];
+const FILTERS_WA = [['all', 'Todos'], ['o30', 'Más de 30 días'], ['o90', 'Más de 90 días'], ['big', 'Más de 5 MB'], ['recv', 'Recibidos'], ['sent', 'Enviados']];
+const FILTERS_PH = [['all', 'Todos'], ['o90', 'Más de 3 meses'], ['o180', 'Más de 6 meses'], ['o365', 'Más de 1 año'], ['big', 'Más de 5 MB'], ['huge', 'Más de 50 MB']];
 const SORTS = [['size', 'Más pesados'], ['new', 'Más nuevos'], ['old', 'Más viejos']];
 
 /* ---- llamadas al puente nativo ---- */
@@ -1798,86 +1809,98 @@ const natCall = (m, ...a) => new Promise((res, rej) => {
 });
 const thumbUrl = (p, s) => '/__t?s=' + (s || 260) + '&p=' + encodeURIComponent(p);
 const fileUrl = p => '/__f?p=' + encodeURIComponent(p);
-const isProt = f => W.prot.has(f.path);
+const isProt = f => PROT.has(f.path);
 
-function catStats() {
+function catStats(T = W) {
   const st = {};
-  W.files.forEach(f => { const c = st[f.cat] || (st[f.cat] = { n: 0, bytes: 0 }); c.n++; c.bytes += f.size; });
+  T.files.forEach(f => { const c = st[f.cat] || (st[f.cat] = { n: 0, bytes: 0 }); c.n++; c.bytes += f.size; });
   return st;
 }
-const totalBytes = () => W.files.reduce((a, f) => a + f.size, 0);
-function dupInfo() {
+const totalBytes = (T = W) => T.files.reduce((a, f) => a + f.size, 0);
+function dupInfo(T = W) {
   let extra = 0, files = 0;
-  W.dup.forEach(g => g.slice(1).forEach(p => { const f = W.byPath.get(p); if (f && !isProt(f)) { extra += f.size; files++; } }));
-  return { groups: W.dup.length, extra, files };
+  T.dup.forEach(g => g.slice(1).forEach(p => { const f = T.byPath.get(p); if (f && !isProt(f)) { extra += f.size; files++; } }));
+  return { groups: T.dup.length, extra, files };
 }
 const selBytesWa = () => [...W.sel].reduce((a, p) => a + ((W.byPath.get(p) || {}).size || 0), 0);
 
-function saveSummary() {
-  const di = dupInfo();
-  W.sum = { ts: W.ts || Date.now(), count: W.files.length, bytes: totalBytes(), dupBytes: di.extra, dupFiles: di.files };
-  store.set(K.waScan, W.sum);
+function saveSummary(T = W) {
+  const di = dupInfo(T);
+  T.sum = { ts: T.ts || Date.now(), count: T.files.length, bytes: totalBytes(T), dupBytes: di.extra, dupFiles: di.files, disk: T.disk };
+  store.set(T.scope === 'ph' ? KEY_PH : K.waScan, T.sum);
 }
 
 /* ---- escaneo ---- */
-async function nativeScan(quiet) {
-  if (W.scanning) return;
-  W.access = NAT.hasAccess();
-  if (!W.access) { renderAll(); if (!quiet) permSheet(); return; }
-  W.scanning = true; W.sel = new Set(); renderAll();
+async function nativeScan(quiet, T = W) {
+  if (T.scanning) return;
+  if (!NAT.hasAccess()) { renderAll(); if (!quiet) permSheet(); return; }
+  T.scanning = true; T.sel = new Set(); renderAll();
   try {
-    const d = JSON.parse(await natCall('scan'));
-    W.roots = d.roots;
-    W.files = d.files.map(a => ({ path: d.roots[a[0]] + '/' + a[1], name: a[1].split('/').pop(), size: a[2], m: a[3], cat: a[4], sent: !!a[5] }));
-    W.byPath = new Map(W.files.map(f => [f.path, f]));
-    W.ts = Date.now(); W.scanned = true; W.dup = []; W.view = 'home'; W.cat = null;
-    saveSummary();
+    const d = JSON.parse(await natCall('scan', T.scope === 'ph'));
+    T.roots = d.roots;
+    T.files = d.files.map(a => ({ path: d.roots[a[0]] + '/' + a[1], rel: a[1], name: a[1].split('/').pop(), size: a[2], m: a[3], cat: a[4], sent: !!a[5] }));
+    T.byPath = new Map(T.files.map(f => [f.path, f]));
+    T.disk = d.disk && d.disk.total ? d.disk : null; T.folders = d.folders || []; T.allBytes = d.totalBytes || 0; T.allCount = d.totalCount || 0;
+    T.ts = Date.now(); T.scanned = true; T.dup = []; T.view = 'home'; T.back = 'home'; T.cat = null; T.folder = null; T.title = null; T.note = null;
+    saveSummary(T);
   } catch (e) {
-    W.scanned = false; if (!quiet) toast('No pude revisar las carpetas de WhatsApp');
+    T.scanned = false; if (!quiet) toast(T.scope === 'ph' ? 'No pude revisar el teléfono' : 'No pude revisar las carpetas de WhatsApp');
   }
-  W.scanning = false; renderAll();
-  if (W.scanned) {
-    if (!W.files.length && !quiet) toast('No encontré archivos de WhatsApp en este teléfono');
-    findDupes();
+  T.scanning = false; renderAll();
+  if (T.scanned) {
+    if (!T.files.length && !quiet) toast(T.scope === 'ph' ? 'No encontré archivos en este teléfono' : 'No encontré archivos de WhatsApp en este teléfono');
+    findDupes(T);
   }
 }
-async function findDupes() {
-  if (W.dupBusy || !W.files.length) return;
-  W.dupBusy = true; renderAll();
-  try { W.dup = JSON.parse(await natCall('dupes')); } catch (_) { W.dup = []; }
-  W.dupBusy = false; saveSummary(); renderAll();
+async function findDupes(T = W) {
+  if (T.dupBusy || !T.files.length) return;
+  T.dupBusy = true; renderAll();
+  try { T.dup = JSON.parse(await natCall('dupes', T.scope === 'ph')); } catch (_) { T.dup = []; }
+  T.dupBusy = false; saveSummary(T); renderAll();
 }
 function permSheet() {
   openSheet(`
-    <h3>Permiso para ver WhatsApp</h3>
-    <p class="sub">Para revisar las carpetas donde WhatsApp guarda tus fotos, videos y audios, Android necesita que actives el permiso <b>“Acceso a todos los archivos”</b> para Crika.</p>
+    <h3>Permiso para ver tu teléfono</h3>
+    <p class="sub">Para medir qué ocupa espacio y encontrar repetidos, Android necesita que actives el permiso <b>“Acceso a todos los archivos”</b> para Crika.</p>
     <ol class="steps">
       <li><span>Tocá <b>Dar permiso</b>.</span></li>
       <li><span>Activá el interruptor de <b>Crika</b>.</span></li>
       <li><span>Volvé a Crika: empieza a revisar sola.</span></li>
     </ol>
-    <p class="hint">Crika solo toca las carpetas de WhatsApp. Nada sale de tu teléfono.</p>
+    <p class="hint">Crika solo lee y mide. Nada se borra sin que lo marques y lo confirmes, y nada sale de tu teléfono.</p>
     <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Ahora no</button><button class="btn btn-primary" data-action="wa-perm">Dar permiso</button></div>`);
 }
 window.__natFocus = () => {
   if (!NAT) return;
   const had = W.access; W.access = NAT.hasAccess();
-  if (W.access && !had) { closeSheet(); nativeScan(); } else renderWa();
+  if (W.access && !had) { closeSheet(); nativeScan(false, W); if (W !== WA && !WA.scanned) nativeScan(true, WA); } else renderWa();
 };
 
 /* ---- render: tarjeta de WhatsApp en Limpieza ---- */
 function filtered() {
-  let l = W.files.filter(f => f.cat === W.cat);
+  let l = W.files;
+  if (W.cat && W.cat !== '*') l = l.filter(f => f.cat === W.cat);
+  if (W.folder) l = l.filter(f => f.rel.startsWith(W.folder + '/'));
   const now = Date.now();
   if (W.filter === 'o30') l = l.filter(f => now - f.m > 30 * DAY);
   else if (W.filter === 'o90') l = l.filter(f => now - f.m > 90 * DAY);
+  else if (W.filter === 'o180') l = l.filter(f => now - f.m > 180 * DAY);
+  else if (W.filter === 'o365') l = l.filter(f => now - f.m > 365 * DAY);
   else if (W.filter === 'big') l = l.filter(f => f.size > 5 * MB);
+  else if (W.filter === 'huge') l = l.filter(f => f.size > 50 * MB);
   else if (W.filter === 'recv') l = l.filter(f => !f.sent);
   else if (W.filter === 'sent') l = l.filter(f => f.sent);
-  l.sort(W.sort === 'size' ? (a, b) => b.size - a.size : W.sort === 'new' ? (a, b) => b.m - a.m : (a, b) => a.m - b.m);
+  l = l.slice().sort(W.sort === 'size' ? (a, b) => b.size - a.size : W.sort === 'new' ? (a, b) => b.m - a.m : (a, b) => a.m - b.m);
   return l;
 }
 const P = p => esc(p);
+
+function dirOf(f) {
+  const i = f.rel.lastIndexOf('/'); if (i < 0) return '';
+  const d = f.rel.slice(0, i);
+  return ' · ' + esc(d.length > 30 ? '…' + d.slice(-30) : d);
+}
+const scopeSeg = () => `<div class="seg wa-scope" role="group" aria-label="Qué revisar">${[['ph', 'Todo el teléfono'], ['wa', 'Solo WhatsApp']].map(([k, l]) => `<button data-action="wa-scope" data-k="${k}" aria-selected="${W.scope === k}">${l}</button>`).join('')}</div>`;
 
 function itemHTML(f, thumb) {
   const checked = W.sel.has(f.path), prot = isProt(f), cat = CATS[f.cat] || CATS.otr;
@@ -1895,7 +1918,7 @@ function itemHTML(f, thumb) {
   return `<label class="row wa-row ${cls}" data-wap="${P(f.path)}">
     ${prot ? '<span class="wa-chk-sp"></span>' : chk}
     <span class="tile tone-${cat.tone}">${ic(cat.ic)}</span>
-    <span class="row-main"><h4>${esc(f.name)}</h4><p>${fmtBytes(f.size)} · ${fmtDate(f.m)}${f.sent ? ' · Enviado' : ''}${prot ? ' · Protegido' : ''}</p></span>
+    <span class="row-main"><h4>${esc(f.name)}</h4><p>${fmtBytes(f.size)} · ${fmtDate(f.m)}${f.sent ? ' · Enviado' : ''}${prot ? ' · Protegido' : ''}${W.scope === 'ph' ? dirOf(f) : ''}</p></span>
     ${star}
   </label>`;
 }
@@ -1913,31 +1936,37 @@ function updateBar() {
   $('#waDelBtn').disabled = W.sel.size === 0;
 }
 
+const filtersNow = () => W.scope === 'ph' ? FILTERS_PH : FILTERS_WA;
+function photoNote() {
+  return `<div class="wa-note"><b>Antes de borrar fotos o videos</b><p>Crika no puede comprobar si ya están en Google Fotos: Google no se lo permite a otras apps. Abrí Google Fotos y mirá que tu copia de seguridad esté completa. Ahí también podés usar <b>Liberar espacio</b>, que sí verifica el respaldo antes de borrar.</p><button class="btn btn-soft btn-sm" data-action="wa-photos">Abrir Google Fotos</button></div>`;
+}
+
 function renderWa() {
   const card = $('#waCard'); if (!NAT) return;
   card.hidden = false;
   const el = $('#waBody');
   W.access = NAT.hasAccess();
-  const head = (t, p) => `<div class="scan-top"><span class="tile tone-green">${ic('phone')}</span><div><h3>${t}</h3><p>${p}</p></div></div>`;
+  const ph = W.scope === 'ph';
+  const head = (t, p) => scopeSeg() + `<div class="scan-top"><span class="tile tone-green">${ic('phone')}</span><div><h3>${t}</h3><p>${p}</p></div></div>`;
 
   if (!W.access) {
-    el.innerHTML = head('Tu WhatsApp en este teléfono', 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos, audios y documentos, y te muestra qué ocupa espacio.') +
+    el.innerHTML = head(ph ? 'Tu teléfono' : 'Tu WhatsApp en este teléfono', ph ? 'Crika mide qué ocupa el espacio de tu teléfono (fotos, videos, descargas y WhatsApp) y encuentra repetidos y archivos pesados.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos, audios y documentos, y te muestra qué ocupa espacio.') +
       `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}Dar permiso y analizar</button>
-       <p class="hint">Solo toca las carpetas de WhatsApp. No se sube nada a internet.</p>`;
+       <p class="hint">Solo lee y mide. Nada se borra sin tu confirmación y no se sube nada a internet.</p>`;
     return;
   }
   if (W.scanning) {
-    el.innerHTML = head('Revisando WhatsApp…', 'Buscando fotos, videos y audios guardados en tu teléfono.') +
-      `<div class="progress"><div class="progress-bar"><i style="width:100%;opacity:.5"></i></div><small>Esto tarda unos segundos.</small></div>`;
+    el.innerHTML = head(ph ? 'Revisando tu teléfono…' : 'Revisando WhatsApp…', ph ? 'Midiendo carpetas, fotos, videos y archivos.' : 'Buscando fotos, videos y audios guardados en tu teléfono.') +
+      `<div class="progress"><div class="progress-bar"><i style="width:100%;opacity:.5"></i></div><small>Esto puede tardar hasta un minuto si tenés muchos archivos.</small></div>`;
     return;
   }
   if (!W.scanned) {
-    el.innerHTML = head('Tu WhatsApp en este teléfono', 'Analizá para ver cuánto espacio ocupan tus fotos, videos y audios.') +
-      `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}Analizar WhatsApp</button>`;
+    el.innerHTML = head(ph ? 'Tu teléfono' : 'Tu WhatsApp en este teléfono', ph ? 'Analizá para ver cuánto espacio te queda y qué lo ocupa.' : 'Analizá para ver cuánto espacio ocupan tus fotos, videos y audios.') +
+      `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}${ph ? 'Analizar mi teléfono' : 'Analizar WhatsApp'}</button>`;
     return;
   }
   if (!W.files.length) {
-    el.innerHTML = head('No encontré archivos', 'No hay fotos, videos ni audios de WhatsApp guardados en este teléfono (o WhatsApp los guarda en otra ubicación).') +
+    el.innerHTML = head('No encontré archivos', ph ? 'No encontré archivos grandes en el almacenamiento de este teléfono.' : 'No hay fotos, videos ni audios de WhatsApp guardados en este teléfono (o WhatsApp los guarda en otra ubicación).') +
       `<button class="btn btn-soft btn-block" data-action="wa-start">Volver a analizar</button>`;
     return;
   }
@@ -1945,12 +1974,24 @@ function renderWa() {
   if (W.view === 'home') {
     const st = catStats(), di = dupInfo();
     const cats = Object.keys(st).sort((a, b) => st[b].bytes - st[a].bytes);
-    el.innerHTML = `
-      <div class="wa-total">
-        <small>WhatsApp ocupa en tu teléfono</small><b>${fmtBytes(totalBytes())}</b>
-        <small>${thousands(W.files.length)} archivos · ${timeAgo(W.ts)}</small>
-      </div>
+    let top;
+    if (ph) {
+      const dk = W.disk, used = dk ? dk.total - dk.free : 0, pct = dk ? Math.round(used / dk.total * 100) : 0;
+      top = dk ? `<div class="wa-total"><small>Espacio libre en tu teléfono</small><b>${fmtBytes(dk.free)}</b><small>${fmtBytes(used)} usados de ${fmtBytes(dk.total)} · ${timeAgo(W.ts)}</small></div>
+        <div class="progress" style="margin-bottom:14px"><div class="progress-bar"><i style="width:${pct}%"></i></div><small>Tus archivos suman ${fmtBytes(W.allBytes)}. El resto son apps y el sistema de Android.</small></div>`
+        : `<div class="wa-total"><small>Tus archivos ocupan</small><b>${fmtBytes(W.allBytes)}</b><small>${thousands(W.allCount)} archivos · ${timeAgo(W.ts)}</small></div>`;
+    } else {
+      top = `<div class="wa-total"><small>WhatsApp ocupa en tu teléfono</small><b>${fmtBytes(totalBytes())}</b><small>${thousands(W.files.length)} archivos · ${timeAgo(W.ts)}</small></div>`;
+    }
+    const now = Date.now();
+    const oldCam = ph ? W.files.filter(f => (f.cat === 'img' || f.cat === 'vid') && f.rel.startsWith('DCIM/') && now - f.m > 90 * DAY) : [];
+    const oldBytes = oldCam.reduce((a, f) => a + f.size, 0);
+    const extraRows = ph ? `
+        ${oldCam.length ? `<button class="row" data-action="wa-old"><span class="tile tone-violet">${ic('image')}</span><span class="row-main"><h4>Fotos viejas de la cámara</h4><p>${thousands(oldCam.length)} de más de 3 meses</p></span><b class="wa-size">${fmtBytes(oldBytes)}</b><span class="wa-chev">${ic('chevron')}</span></button>` : ''}
+        ${W.folders.length ? `<button class="row" data-action="wa-folders"><span class="tile tone-blue">${ic('folder')}</span><span class="row-main"><h4>Carpetas que más ocupan</h4><p>Mirá dónde se va el espacio</p></span><span class="wa-chev">${ic('chevron')}</span></button>` : ''}` : '';
+    el.innerHTML = scopeSeg() + top + `
       <div class="wa-cats card flush" style="box-shadow:none;border-radius:16px">
+        ${extraRows}
         ${cats.map(k => { const c = CATS[k] || CATS.otr; return `<button class="row" data-action="wa-cat" data-k="${k}">
           <span class="tile tone-${c.tone}">${ic(c.ic)}</span>
           <span class="row-main"><h4>${c.l}</h4><p>${thousands(st[k].n)} ${st[k].n === 1 ? 'archivo' : 'archivos'}</p></span>
@@ -1961,17 +2002,30 @@ function renderWa() {
           <b class="wa-size">${di.extra ? fmtBytes(di.extra) : ''}</b><span class="wa-chev">${ic('chevron')}</span></button>
       </div>
       <button class="btn btn-soft btn-block" style="margin-top:14px" data-action="wa-start">Volver a analizar</button>
-      <p class="hint">WhatsApp no guarda de qué chat viene cada archivo, así que Crika los agrupa por tipo, tamaño y fecha. Nada se borra sin que lo confirmes.</p>`;
+      <p class="hint">${ph ? 'Crika lista los archivos de más de 100 KB. Nada se borra sin que lo confirmes. WhatsApp y Android no dicen de qué chat viene cada archivo ni si el mensaje está sin leer.' : 'WhatsApp no guarda de qué chat viene cada archivo, así que Crika los agrupa por tipo, tamaño y fecha. Nada se borra sin que lo confirmes.'}</p>`;
+    return;
+  }
+
+  if (W.view === 'folders') {
+    const list = W.folders.slice(0, 40);
+    el.innerHTML = `
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>Carpetas que más ocupan</h3></div>
+      <p class="wa-sub">Las ${list.length} más pesadas de tu almacenamiento. Al abrir una, ves sus archivos de más de 100 KB.</p>
+      <div class="card flush">${list.map(([n, b, c]) => `<button class="row" data-action="wa-folder" data-k="${P(n)}"><span class="tile tone-blue">${ic('folder')}</span><span class="row-main"><h4>${esc(n)}</h4><p>${thousands(c)} ${c === 1 ? 'archivo' : 'archivos'}</p></span><b class="wa-size">${fmtBytes(b)}</b><span class="wa-chev">${ic('chevron')}</span></button>`).join('')}</div>`;
     return;
   }
 
   if (W.view === 'cat') {
-    const c = CATS[W.cat] || CATS.otr, all = filtered(), list = all.slice(0, W.shown);
+    const star = W.cat === '*';
+    const c = star ? { l: W.title || W.folder || 'Archivos', thumb: false } : (CATS[W.cat] || CATS.otr);
+    const all = filtered(), list = all.slice(0, W.shown);
     const bytes = all.reduce((a, f) => a + f.size, 0);
+    const photoish = ph && (W.note === 'photos' || W.cat === 'img' || W.cat === 'vid');
     el.innerHTML = `
-      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>${c.l}</h3></div>
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>${esc(c.l)}</h3></div>
       <p class="wa-sub">${thousands(all.length)} ${all.length === 1 ? 'archivo' : 'archivos'} · ${fmtBytes(bytes)}</p>
-      <div class="chips wa-chips" role="group" aria-label="Filtros">${FILTERS.map(([k, l]) => `<button class="chip" data-action="wa-filter" data-k="${k}" aria-pressed="${W.filter === k}">${l}</button>`).join('')}</div>
+      ${photoish ? photoNote() : ''}
+      <div class="chips wa-chips" role="group" aria-label="Filtros">${filtersNow().map(([k, l]) => `<button class="chip" data-action="wa-filter" data-k="${k}" aria-pressed="${W.filter === k}">${l}</button>`).join('')}</div>
       <div class="seg tight" role="group" aria-label="Orden">${SORTS.map(([k, l]) => `<button data-action="wa-sort" data-k="${k}" aria-selected="${W.sort === k}">${l}</button>`).join('')}</div>
       <div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-selall">Marcar todo lo que se ve (${thousands(all.filter(f => !isProt(f)).length)})</button></div>
       ${all.length ? (c.thumb ? `<div class="photos wa-photos">${list.map(f => itemHTML(f, true)).join('')}</div>` : `<div class="card flush wa-list">${list.map(f => itemHTML(f, false)).join('')}</div>`) : '<div class="empty" style="padding:26px 10px"><p>No hay archivos con este filtro.</p></div>'}
@@ -2001,21 +2055,25 @@ function renderWa() {
 
 /* ---- acciones ---- */
 function toggleProtWa(p) {
-  if (W.prot.has(p)) W.prot.delete(p); else { W.prot.add(p); W.sel.delete(p); }
-  store.set(K.waProt, [...W.prot]);
+  if (PROT.has(p)) PROT.delete(p); else { PROT.add(p); W.sel.delete(p); }
+  store.set(K.waProt, [...PROT]);
   renderWa(); saveSummary(); renderHome();
 }
 
 async function doDelete() {
-  const paths = [...W.sel].filter(p => W.byPath.has(p) && !W.prot.has(p));
+  const paths = [...W.sel].filter(p => W.byPath.has(p) && !PROT.has(p));
   if (!paths.length) return;
   $('#sheetBody').innerHTML = `<h3>Borrando…</h3><div class="status" style="margin-top:14px"><span class="spinner"></span><span>Un momento, no cierres Crika.</span></div>`;
   try {
     const r = JSON.parse(await natCall('del', JSON.stringify(paths)));
-    if (r.failed > 0) { W.scanned = false; await nativeScan(true); } else {
+    if (PH.disk && r.freed) PH.disk.free += r.freed;
+    if (r.failed > 0) { W.scanned = false; await nativeScan(true, W); } else {
       const gone = new Set(paths);
-      W.files = W.files.filter(f => !gone.has(f.path)); paths.forEach(p => W.byPath.delete(p));
-      W.dup = W.dup.map(g => g.filter(p => !gone.has(p))).filter(g => g.length > 1);
+      for (const T of [WA, PH]) {
+        T.files = T.files.filter(f => !gone.has(f.path)); paths.forEach(p => T.byPath.delete(p));
+        T.dup = T.dup.map(g => g.filter(p => !gone.has(p))).filter(g => g.length > 1);
+        if (T.scanned) saveSummary(T);
+      }
     }
     W.sel = new Set(); saveSummary(); closeSheet(); renderAll();
     toast(r.deleted ? `Liberaste ${fmtBytes(r.freed)}${r.failed ? ` (${r.failed} no se pudieron borrar)` : ''}` : 'No pude borrar esos archivos');
@@ -2023,20 +2081,36 @@ async function doDelete() {
 }
 function confirmDelete() {
   if (!W.sel.size) { toast('Marcá primero lo que querés borrar'); return; }
-  const n = W.sel.size;
+  const n = W.sel.size, paths = [...W.sel];
+  const hasWa = paths.some(p => /whatsapp/i.test(p));
+  const media = paths.some(p => { const f = W.byPath.get(p); return f && (f.cat === 'img' || f.cat === 'vid'); });
   openSheet(`<h3>¿Borrar ${thousands(n)} ${n === 1 ? 'archivo' : 'archivos'}?</h3>
-    <p class="sub">Vas a liberar <b>${fmtBytes(selBytesWa())}</b>. Se borran de tu teléfono y <b>no se pueden recuperar</b>. En WhatsApp esos archivos van a aparecer como “no disponible”.</p>
-    <p class="hint">Consejo: si son fotos o videos que querés conservar, revisá antes que estén respaldados en Google Fotos.</p>
+    <p class="sub">Vas a liberar <b>${fmtBytes(selBytesWa())}</b>. Se borran de tu teléfono y <b>no se pueden recuperar</b>.${hasWa ? ' En WhatsApp los archivos de WhatsApp van a aparecer como “no disponible”.' : ''}</p>
+    ${media ? '<p class="hint">Si son fotos o videos que querés conservar, abrí antes Google Fotos y confirmá que estén respaldados. Crika no puede verificarlo por vos.</p>' : ''}
     <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cancelar</button><button class="btn btn-primary" data-action="wa-confirm">Sí, borrar</button></div>`);
 }
 
+function waBack() {
+  W.view = (W.view === 'cat' && W.back === 'folders') ? 'folders' : 'home';
+  W.back = 'home'; W.folder = null; W.title = null; W.note = null; W.sel = new Set();
+  renderWa(); $('#main').scrollTop = 0;
+}
+function openCat(patch) {
+  Object.assign(W, { view: 'cat', filter: 'all', sort: 'size', shown: 90, sel: new Set(), folder: null, title: null, note: null, back: 'home' }, patch);
+  renderWa(); $('#main').scrollTop = 0;
+}
 function natAction(a, el) {
   switch (a) {
-    case 'wa-start': nativeScan(); return true;
+    case 'wa-start': nativeScan(false, W); if (W !== WA && !WA.scanned && NAT.hasAccess()) nativeScan(true, WA); return true;
     case 'wa-perm': closeSheet(); NAT.requestAccess(); return true;
-    case 'wa-cat': W.view = 'cat'; W.cat = el.dataset.k; W.filter = 'all'; W.sort = 'size'; W.shown = 90; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-scope': W = el.dataset.k === 'wa' ? WA : PH; store.set(KEY_SCOPE, el.dataset.k); if (NAT.hasAccess() && !W.scanned && !W.scanning) nativeScan(true, W); else renderAll(); return true;
+    case 'wa-cat': openCat({ cat: el.dataset.k }); return true;
+    case 'wa-folders': W.view = 'folders'; W.back = 'home'; renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-folder': openCat({ cat: '*', folder: el.dataset.k, back: 'folders' }); return true;
+    case 'wa-old': openCat({ cat: '*', folder: 'DCIM', filter: 'o90', sort: 'old', title: 'Fotos viejas de la cámara', note: 'photos' }); return true;
+    case 'wa-photos': if (!NAT.openPhotos()) toast('No encontré Google Fotos en este teléfono'); return true;
     case 'wa-dups': W.view = 'dups'; W.shown = 30; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
-    case 'wa-back': W.view = 'home'; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-back': waBack(); return true;
     case 'wa-filter': W.filter = el.dataset.k; W.shown = 90; renderWa(); return true;
     case 'wa-sort': W.sort = el.dataset.k; W.shown = 90; renderWa(); return true;
     case 'wa-more': W.shown += 90; renderWa(); return true;
@@ -2048,7 +2122,7 @@ function natAction(a, el) {
     case 'wa-confirm': doDelete(); return true;
     case 'wa-audio-batch': waBatch(); return true;
     case 'wa-audio-open': waOpenAudio(el.dataset.p); return true;
-    case 'wa-audio-scan': nativeScan(); return true;
+    case 'wa-audio-scan': nativeScan(false, WA); return true;
   }
   return false;
 }
@@ -2061,29 +2135,31 @@ if (NAT) document.addEventListener('change', e => {
 
 /* ---- inicio ---- */
 function renderHomeNative() {
-  const sum = W.scanned ? { ts: W.ts, bytes: totalBytes(), count: W.files.length, dupBytes: dupInfo().extra } : W.sum;
+  const T = W, ph = T.scope === 'ph';
+  const sum = T.scanned ? { ts: T.ts, bytes: totalBytes(T), count: T.files.length, dupBytes: dupInfo(T).extra, disk: T.disk } : T.sum;
   const pct = sum && sum.bytes ? Math.round(sum.dupBytes / sum.bytes * 100) : 0;
   $('#ringBar').style.strokeDashoffset = CIRC * (1 - pct / 100);
   $('#ringBar').style.opacity = pct > 0 ? '1' : '0';
   $('#ringPct').textContent = sum ? (pct === 0 && sum.dupBytes > 0 ? '<1%' : pct + '%') : '–';
   $('#ringSub').textContent = sum ? 'son repetidos' : 'sin analizar';
-  $('#heroLabel').textContent = 'WhatsApp ocupa';
-  $('#heroPhotos').textContent = sum ? fmtBytes(sum.bytes) : '0 MB';
-  $('#heroSub').textContent = sum ? `${thousands(sum.count)} archivos · ${timeAgo(sum.ts)}` : 'Todavía no analizaste nada';
+  const dk = ph && sum && sum.disk && sum.disk.total ? sum.disk : null;
+  $('#heroLabel').textContent = ph ? (dk ? 'Espacio libre en tu teléfono' : 'Tus archivos ocupan') : 'WhatsApp ocupa';
+  $('#heroPhotos').textContent = !sum ? '0 MB' : dk ? fmtBytes(dk.free) : fmtBytes(sum.bytes);
+  $('#heroSub').textContent = !sum ? 'Todavía no analizaste nada' : dk ? `${fmtBytes(dk.total - dk.free)} usados de ${fmtBytes(dk.total)} · ${timeAgo(sum.ts)}` : `${thousands(sum.count)} archivos · ${timeAgo(sum.ts)}`;
   $('#heroRecLabel').textContent = 'Repetidos que podés liberar';
   $('#heroRecover').textContent = sum ? fmtBytes(sum.dupBytes) : '0 MB';
-  $('#analyzeLabel').textContent = sum ? 'Analizar de nuevo' : 'Analizar WhatsApp';
+  $('#analyzeLabel').textContent = sum ? 'Analizar de nuevo' : ph ? 'Analizar mi teléfono' : 'Analizar WhatsApp';
   $('#analyzeBtn').dataset.action = 'wa-start';
-  $('#heroHint').textContent = 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y audios. No se sube nada.';
-  $('#statProt').textContent = thousands(S.prot.length + W.prot.size);
+  $('#heroHint').textContent = ph ? 'Crika mide todo tu almacenamiento: fotos, videos, descargas y WhatsApp. No se sube nada.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y audios. No se sube nada.';
+  $('#statProt').textContent = thousands(S.prot.length + PROT.size);
   $('#statAudios').textContent = thousands(S.audios.length);
-  const nuevos = W.scanned ? waAudioList().filter(f => !waDone(f)).length : 0;
+  const nuevos = WA.scanned ? waAudioList().filter(f => !waDone(f)).length : 0;
   const pend = S.audios.filter(a => a.status === 'pendiente').length;
   $('#statAudiosSub').textContent = nuevos ? `${nuevos} ${nuevos === 1 ? 'audio nuevo' : 'audios nuevos'} sin escuchar` : pend ? `${pend} sin responder` : S.audios.length ? 'todos respondidos' : 'Buscá audios en Mensajes';
 }
 
 /* ---- audios de WhatsApp ---- */
-const waAudioList = () => W.files.filter(f => (f.cat === 'ptt' || f.cat === 'aud') && !f.sent && f.size <= 4 * MB).sort((a, b) => b.m - a.m);
+const waAudioList = () => WA.files.filter(f => (f.cat === 'ptt' || f.cat === 'aud') && !f.sent && f.size <= 4 * MB).sort((a, b) => b.m - a.m);
 const waEntry = f => S.audios.find(a => a.id === 'w:' + f.path);
 const waDone = f => { const e = waEntry(f); return !!(e && e.text); };
 const audioBlob = async p => { const r = await fetch(fileUrl(p)); if (!r.ok) throw new Error('read'); return r.blob(); };
@@ -2093,12 +2169,12 @@ function renderWaAudios() {
   card.hidden = false;
   const el = $('#waAudioBody');
   const head = `<div class="scan-top"><span class="tile tone-amber">${ic('mic')}</span><div><h3>Audios de WhatsApp</h3><p>Crika encuentra tus notas de voz, las escucha y te resume cada una con respuestas listas.</p></div></div>`;
-  if (!NAT.hasAccess() || !W.scanned) {
-    el.innerHTML = head + (W.scanning ? `<div class="status"><span class="spinner"></span><span>Buscando audios…</span></div>` : `<button class="btn btn-primary btn-block" data-action="wa-audio-scan">${ic('mic')}Buscar mis audios</button>`);
+  if (!NAT.hasAccess() || !WA.scanned) {
+    el.innerHTML = head + (WA.scanning ? `<div class="status"><span class="spinner"></span><span>Buscando audios…</span></div>` : `<button class="btn btn-primary btn-block" data-action="wa-audio-scan">${ic('mic')}Buscar mis audios</button>`);
     return;
   }
   const list = waAudioList(), nuevos = list.filter(f => !waDone(f));
-  const b = W.batch;
+  const b = WA.batch;
   if (!list.length) { el.innerHTML = head + `<div class="status">No encontré notas de voz recibidas en este teléfono.</div><button class="btn btn-soft btn-block" style="margin-top:10px" data-action="wa-audio-scan">Buscar de nuevo</button>`; return; }
   const top = b
     ? `<div class="progress"><div class="progress-bar"><i style="width:${b.total ? Math.round(b.done / b.total * 100) : 0}%"></i></div><small>${esc(b.msg)}</small></div>`
@@ -2114,16 +2190,16 @@ function renderWaAudios() {
 }
 
 async function waBatch() {
-  if (W.batch) return;
+  if (WA.batch) return;
   const todo = waAudioList().filter(f => !waDone(f)).slice(0, 8);
   if (!todo.length) return;
-  W.batch = { done: 0, total: todo.length, msg: 'Preparando…' }; renderWaAudios();
-  const setMsg = m => { W.batch.msg = m; renderWaAudios(); };
+  WA.batch = { done: 0, total: todo.length, msg: 'Preparando…' }; renderWaAudios();
+  const setMsg = m => { WA.batch.msg = m; renderWaAudios(); };
   let fails = 0, tried = 0;
   for (const f of todo) {
     tried++;
     try {
-      setMsg(`Escuchando audio ${W.batch.done + 1} de ${todo.length}…`);
+      setMsg(`Escuchando audio ${WA.batch.done + 1} de ${todo.length}…`);
       const d = await decodeAudio(await audioBlob(f.path));
       const text = await transcribe(d.pcm, (k, m) => { if (k === 'spin') setMsg(m); });
       if (!text) throw new Error('empty');
@@ -2134,14 +2210,14 @@ async function waBatch() {
       e.text = text; e.summary = a.summary; e.reply = a.replies[0];
       store.set(K.audios, S.audios);
     } catch (_) { fails++; if (fails >= 2 && fails === tried) break; }
-    W.batch.done++; renderWaAudios(); renderHome(); renderBadges();
+    WA.batch.done++; renderWaAudios(); renderHome(); renderBadges();
   }
-  W.batch = null; renderAll();
+  WA.batch = null; renderAll();
   toast(fails ? (fails === todo.length ? 'No pude transcribir. Revisá tu internet (la primera vez hace falta).' : `Listo. ${fails} no se pudieron leer.`) : 'Audios resumidos');
 }
 
 async function waOpenAudio(p) {
-  const f = W.byPath.get(p); if (!f) return;
+  const f = WA.byPath.get(p); if (!f) return;
   try {
     const blob = await audioBlob(p), ent = waEntry(f);
     const file = new File([blob], f.name, { type: blob.type || 'audio/ogg', lastModified: f.m });
@@ -2161,7 +2237,7 @@ if (NAT) {
   };
   window.__back = () => {
     if ($('#sheetBack').classList.contains('open')) { closeSheet(); return true; }
-    if (W.view !== 'home' && $('#limpieza').classList.contains('active')) { W.view = 'home'; W.sel = new Set(); renderWa(); return true; }
+    if (W.view !== 'home' && $('#limpieza').classList.contains('active')) { waBack(); return true; }
     if (!$('#home').classList.contains('active')) { go('home'); return true; }
     return false;
   };
@@ -2170,15 +2246,15 @@ if (NAT) {
 
 if (NAT) {
   $('#howBox').innerHTML = `
-    <div><h4>${ic('phone')}Limpieza de WhatsApp</h4><ol class="steps">
-      <li><span>Tocá <b>Analizar WhatsApp</b> y dale el permiso.</span></li>
-      <li><span>Crika mide qué ocupa espacio y encuentra archivos idénticos.</span></li>
+    <div><h4>${ic('phone')}Limpieza de tu teléfono</h4><ol class="steps">
+      <li><span>Tocá <b>Analizar mi teléfono</b> y dale el permiso.</span></li>
+      <li><span>Crika mide el espacio, encuentra repetidos, archivos pesados y fotos viejas de la cámara.</span></li>
       <li><span>Marcás lo que sobra y confirmás: se borra del teléfono.</span></li></ol></div>
     <div><h4>${ic('mic')}Audios de WhatsApp</h4><ol class="steps">
       <li><span>En <b>Mensajes</b>, Crika encuentra tus notas de voz nuevas.</span></li>
       <li><span>Las escucha, las transcribe y te las resume.</span></li>
       <li><span>Elegís una respuesta sugerida y la enviás por WhatsApp.</span></li></ol></div>`;
-  $('#howNote').textContent = 'Crika no lee tus chats: trabaja con los archivos que WhatsApp guarda en tu teléfono. Para saber cuál está sin leer en WhatsApp, mirá los que figuran como “Nuevo”.';
+  $('#howNote').textContent = 'Crika no lee tus chats: trabaja con los archivos que se guardan en tu teléfono. No puede saber de qué grupo viene cada archivo, qué mensajes están sin leer, ni si una foto ya está en Google Fotos (eso lo verifica Google Fotos con “Liberar espacio”).';
 }
 
 
