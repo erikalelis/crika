@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
 import android.os.Environment;
+import android.os.StatFs;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -52,7 +53,13 @@ final class WaFiles {
     private final File sd = Environment.getExternalStorageDirectory();
     private final List<File> roots = new ArrayList<>();
     private final List<String> rootCanon = new ArrayList<>();
-    private volatile List<Rec> last = new ArrayList<>();
+    private volatile List<Rec> lastWa = new ArrayList<>();
+    private volatile List<Rec> lastPh = new ArrayList<>();
+    private String sdCanon = null;
+
+    /** En "todo el teléfono" solo se listan archivos de más de 100 KB (lo demás casi no pesa). */
+    private static final long PHONE_MIN = 100 * 1024;
+    private static final int PHONE_MAX_FILES = 40000;
 
     private void findRoots() {
         roots.clear();
@@ -72,15 +79,16 @@ final class WaFiles {
         }
     }
 
-    /** Solo se permite leer o borrar archivos que están dentro de las carpetas de WhatsApp. */
+    /** Solo se permite leer o borrar archivos del almacenamiento compartido (nunca datos privados de otras apps). */
     boolean allowed(String path) {
         if (path == null) return false;
         try {
+            if (sdCanon == null) sdCanon = sd.getCanonicalPath();
             String c = new File(path).getCanonicalPath();
-            if (rootCanon.isEmpty()) findRoots();
-            for (String r : rootCanon) {
-                if (c.startsWith(r + "/")) return true;
-            }
+            if (!c.startsWith(sdCanon + "/")) return false;
+            String rel = c.substring(sdCanon.length() + 1);
+            if (rel.equals("Android") || rel.startsWith("Android/data") || rel.startsWith("Android/obb")) return false;
+            return true;
         } catch (IOException ignored) {
         }
         return false;
@@ -101,12 +109,38 @@ final class WaFiles {
         }
     }
 
-    /** Recorre las carpetas de WhatsApp y devuelve todo lo encontrado. */
-    JSONObject scan() throws JSONException {
+    private static String catByExt(String name) {
+        String n = name.toLowerCase(Locale.ROOT);
+        int i = n.lastIndexOf('.');
+        String e = i >= 0 ? n.substring(i + 1) : "";
+        switch (e) {
+            case "jpg": case "jpeg": case "png": case "webp": case "gif": case "bmp": case "heic": case "heif": case "dng": return "img";
+            case "mp4": case "3gp": case "mkv": case "webm": case "mov": case "avi": case "m4v": return "vid";
+            case "mp3": case "m4a": case "aac": case "ogg": case "opus": case "wav": case "amr": case "flac": return "aud";
+            case "pdf": case "doc": case "docx": case "xls": case "xlsx": case "ppt": case "pptx": case "txt": case "csv": case "epub": return "doc";
+            case "apk": case "xapk": case "apks": return "apk";
+            case "zip": case "rar": case "7z": case "tar": case "gz": return "zip";
+            default: return "otr";
+        }
+    }
+
+    private static String folderLabel(String[] parts) {
+        if (parts.length <= 1) return "(archivos sueltos)";
+        if (parts[0].equals("Android") && parts.length > 3 && parts[1].equals("media")) return "Android/media/" + parts[2];
+        return parts[0];
+    }
+
+    /** Recorre las carpetas de WhatsApp (o todo el almacenamiento) y devuelve todo lo encontrado. */
+    JSONObject scan(boolean phone) throws JSONException {
         findRoots();
+        List<File> scanRoots = new ArrayList<>();
+        if (phone) scanRoots.add(sd); else scanRoots.addAll(roots);
+        String sdPath = sd.getAbsolutePath();
         List<Rec> out = new ArrayList<>();
-        for (int ri = 0; ri < roots.size(); ri++) {
-            File root = roots.get(ri);
+        long totalBytes = 0, totalCount = 0;
+        Map<String, long[]> folders = new HashMap<>();
+        for (int ri = 0; ri < scanRoots.size(); ri++) {
+            File root = scanRoots.get(ri);
             String base = root.getAbsolutePath();
             ArrayDeque<File> stack = new ArrayDeque<>();
             stack.push(root);
@@ -117,7 +151,13 @@ final class WaFiles {
                 for (File k : kids) {
                     String name = k.getName();
                     if (k.isDirectory()) {
-                        if (name.equals(".Thumbs") || name.equals(".trash") || name.equals("Backups") || name.equals("Databases")) continue;
+                        if (phone) {
+                            if (name.startsWith(".")) continue;
+                            String kp = k.getAbsolutePath();
+                            if (kp.equals(base + "/Android/data") || kp.equals(base + "/Android/obb")) continue;
+                        } else if (name.equals(".Thumbs") || name.equals(".trash") || name.equals("Backups") || name.equals("Databases")) {
+                            continue;
+                        }
                         stack.push(k);
                     } else {
                         if (name.equals(".nomedia")) continue;
@@ -133,21 +173,46 @@ final class WaFiles {
                         r.rel = rel;
                         r.size = len;
                         r.mtime = k.lastModified();
-                        r.cat = category(parts[0]);
-                        boolean sent = false;
-                        for (int i = 1; i < parts.length - 1; i++) if (parts[i].equals("Sent")) sent = true;
-                        r.sent = sent;
                         r.path = full;
+                        if (phone) {
+                            totalBytes += len;
+                            totalCount++;
+                            String label = folderLabel(parts);
+                            long[] agg = folders.get(label);
+                            if (agg == null) {
+                                agg = new long[2];
+                                folders.put(label, agg);
+                            }
+                            agg[0] += len;
+                            agg[1]++;
+                            if (len < PHONE_MIN) continue;
+                            r.cat = catByExt(name);
+                            r.sent = false;
+                        } else {
+                            r.cat = category(parts[0]);
+                            boolean sent = false;
+                            for (int i = 1; i < parts.length - 1; i++) if (parts[i].equals("Sent")) sent = true;
+                            r.sent = sent;
+                        }
                         out.add(r);
                     }
                 }
             }
         }
-        last = out;
+        if (phone && out.size() > PHONE_MAX_FILES) {
+            Collections.sort(out, new Comparator<Rec>() {
+                @Override
+                public int compare(Rec a, Rec b) {
+                    return Long.compare(b.size, a.size);
+                }
+            });
+            out = new ArrayList<>(out.subList(0, PHONE_MAX_FILES));
+        }
+        if (phone) lastPh = out; else lastWa = out;
 
         JSONObject res = new JSONObject();
         JSONArray rootsJson = new JSONArray();
-        for (File rf : roots) rootsJson.put(rf.getAbsolutePath());
+        for (File rf : scanRoots) rootsJson.put(rf.getAbsolutePath());
         res.put("roots", rootsJson);
         JSONArray files = new JSONArray();
         for (Rec r : out) {
@@ -156,6 +221,32 @@ final class WaFiles {
             files.put(a);
         }
         res.put("files", files);
+        if (phone) {
+            JSONObject disk = new JSONObject();
+            try {
+                StatFs st = new StatFs(sdPath);
+                disk.put("total", st.getTotalBytes());
+                disk.put("free", st.getAvailableBytes());
+            } catch (Throwable ignored) {
+            }
+            res.put("disk", disk);
+            res.put("totalBytes", totalBytes);
+            res.put("totalCount", totalCount);
+            List<Map.Entry<String, long[]>> fl = new ArrayList<>(folders.entrySet());
+            Collections.sort(fl, new Comparator<Map.Entry<String, long[]>>() {
+                @Override
+                public int compare(Map.Entry<String, long[]> a, Map.Entry<String, long[]> b) {
+                    return Long.compare(b.getValue()[0], a.getValue()[0]);
+                }
+            });
+            JSONArray fj = new JSONArray();
+            for (int i = 0; i < fl.size() && i < 60; i++) {
+                JSONArray a = new JSONArray();
+                a.put(fl.get(i).getKey()).put(fl.get(i).getValue()[0]).put(fl.get(i).getValue()[1]);
+                fj.put(a);
+            }
+            res.put("folders", fj);
+        }
         return res;
     }
 
@@ -172,11 +263,26 @@ final class WaFiles {
         return sb.toString();
     }
 
+    /** Huella rápida: tamaño + primeros 128 KB. Sirve para descartar rápido lo que seguro es distinto. */
+    private static String quickHash(File f) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        try (InputStream in = new FileInputStream(f)) {
+            byte[] buf = new byte[128 * 1024];
+            int n = in.read(buf);
+            if (n > 0) md.update(buf, 0, n);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (byte b : md.digest()) sb.append(String.format(Locale.US, "%02x", b));
+        return sb.toString();
+    }
+
     /** Archivos idénticos (mismo contenido exacto). Solo compara los que tienen el mismo tamaño. */
-    JSONArray duplicates() {
+    JSONArray duplicates(boolean phone) {
+        List<Rec> src = phone ? lastPh : lastWa;
+        long minSize = phone ? PHONE_MIN : 1024;
         Map<Long, List<Rec>> bySize = new HashMap<>();
-        for (Rec r : last) {
-            if (r.size < 1024) continue;
+        for (Rec r : src) {
+            if (r.size < minSize) continue;
             List<Rec> l = bySize.get(r.size);
             if (l == null) {
                 l = new ArrayList<>();
@@ -187,30 +293,46 @@ final class WaFiles {
         JSONArray groups = new JSONArray();
         for (List<Rec> same : bySize.values()) {
             if (same.size() < 2) continue;
-            Map<String, List<Rec>> byHash = new HashMap<>();
+            Map<String, List<Rec>> byQuick = new HashMap<>();
             for (Rec r : same) {
                 try {
-                    String h = md5(new File(r.path));
-                    List<Rec> l = byHash.get(h);
+                    String h = quickHash(new File(r.path));
+                    List<Rec> l = byQuick.get(h);
                     if (l == null) {
                         l = new ArrayList<>();
-                        byHash.put(h, l);
+                        byQuick.put(h, l);
                     }
                     l.add(r);
                 } catch (Exception ignored) {
                 }
             }
-            for (List<Rec> g : byHash.values()) {
-                if (g.size() < 2) continue;
-                Collections.sort(g, new Comparator<Rec>() {
-                    @Override
-                    public int compare(Rec a, Rec b) {
-                        return Long.compare(a.mtime, b.mtime);
+            for (List<Rec> cand : byQuick.values()) {
+                if (cand.size() < 2) continue;
+                Map<String, List<Rec>> byHash = new HashMap<>();
+                for (Rec r : cand) {
+                    try {
+                        String h = md5(new File(r.path));
+                        List<Rec> l = byHash.get(h);
+                        if (l == null) {
+                            l = new ArrayList<>();
+                            byHash.put(h, l);
+                        }
+                        l.add(r);
+                    } catch (Exception ignored) {
                     }
-                });
-                JSONArray ja = new JSONArray();
-                for (Rec r : g) ja.put(r.path);
-                groups.put(ja);
+                }
+                for (List<Rec> g : byHash.values()) {
+                    if (g.size() < 2) continue;
+                    Collections.sort(g, new Comparator<Rec>() {
+                        @Override
+                        public int compare(Rec a, Rec b) {
+                            return Long.compare(a.mtime, b.mtime);
+                        }
+                    });
+                    JSONArray ja = new JSONArray();
+                    for (Rec r : g) ja.put(r.path);
+                    groups.put(ja);
+                }
             }
         }
         return groups;

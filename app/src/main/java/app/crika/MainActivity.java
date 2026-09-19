@@ -44,7 +44,7 @@ import java.util.concurrent.Executors;
 /**
  * Crika para Android: muestra la interfaz de Crika (la misma de la versión web)
  * dentro de una ventana web y le da acceso, con permiso del usuario,
- * a las carpetas de WhatsApp del teléfono.
+ * a los archivos del teléfono (WhatsApp y el resto del almacenamiento).
  */
 public class MainActivity extends Activity {
 
@@ -336,12 +336,12 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void scan(final int id) {
+        public void scan(final int id, final boolean phone) {
             pool.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        reply(id, true, wa.scan().toString());
+                        reply(id, true, wa.scan(phone).toString());
                     } catch (Throwable t) {
                         reply(id, false, String.valueOf(t.getMessage()));
                     }
@@ -350,12 +350,12 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void dupes(final int id) {
+        public void dupes(final int id, final boolean phone) {
             pool.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        reply(id, true, wa.duplicates().toString());
+                        reply(id, true, wa.duplicates(phone).toString());
                     } catch (Throwable t) {
                         reply(id, false, String.valueOf(t.getMessage()));
                     }
@@ -380,6 +380,19 @@ public class MainActivity extends Activity {
                     }
                 }
             });
+        }
+
+        /** Abre la app de Google Fotos (para revisar el respaldo antes de borrar fotos). */
+        @JavascriptInterface
+        public boolean openPhotos() {
+            try {
+                Intent i = getPackageManager().getLaunchIntentForPackage("com.google.android.apps.photos");
+                if (i == null) return false;
+                startActivity(i);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
         }
 
         /** Nombre del archivo compartido con Crika (o vacío). Se pide una sola vez. */
