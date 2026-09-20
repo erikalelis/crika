@@ -1,0 +1,17 @@
+CRIKA PARA ANDROID
+==================
+Este proyecto genera la app de Crika (Crika.apk) para tu celular Android.
+No hace falta instalar nada en la computadora: GitHub arma la app solo.
+
+Pasos:
+1. Creá una cuenta gratis en github.com.
+2. Creá un repositorio nuevo (botón verde "New"): nombre "crika", Public, y marcá "Add a README file".
+3. En el repositorio: "Add file" > "Upload files". Arrastrá TODO lo que hay dentro de esta carpeta
+   (no la carpeta: su contenido, incluida la carpeta .github). Tocá "Commit changes".
+4. Andá a la pestaña "Actions": vas a ver "Crear la app de Crika (APK)" trabajando (tarda unos 5 minutos).
+5. Cuando termine (tilde verde), volvé a la página principal del repositorio: a la derecha, en "Releases",
+   entrá a "Crika (versión 1)" y descargá Crika.apk desde tu celular.
+6. Abrí el archivo descargado e instalalo (Android te va a pedir permiso para instalar de esta fuente).
+7. Abrí Crika y tocá "Analizar WhatsApp": te pide el permiso "Acceso a todos los archivos".
+
+Si algo falla en el paso 4, sacale una captura a la pantalla roja de "Actions" y mandásela a Claude.
