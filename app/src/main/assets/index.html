@@ -259,6 +259,11 @@ button.row:active { background: var(--surface-2); }
 .hero-recover small { font-size: .8rem; opacity: .85; }
 .hero-recover .big { font-size: 1.85rem; font-weight: 800; letter-spacing: -.04em; line-height: 1.15; }
 .btn-hero { margin-top: 16px; background: #fff; color: #3f34c8; box-shadow: 0 10px 22px rgba(20,10,90,.28); }
+.proc-banner { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 80; display: flex; align-items: center; gap: 12px; background: var(--text); color: var(--bg); border-radius: 16px; padding: 13px 16px; box-shadow: var(--shadow-lg); }
+.proc-banner[hidden] { display: none; }
+.proc-banner b { display: block; font-size: .95rem; }
+.proc-banner small { opacity: .8; font-size: .8rem; }
+.proc-banner .spinner { flex: 0 0 auto; width: 22px; height: 22px; }
 .spinner { width: 18px; height: 18px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
 
 .stat { display: flex; align-items: center; gap: 14px; width: 100%; transition: transform .15s; }
@@ -862,6 +867,12 @@ textarea.tx { overflow: hidden; }
           <p class="hint">WhatsApp se abre con la respuesta lista: elegís el chat y tocás enviar. Crika no envía nada por su cuenta.</p>
         </div>
 
+        <div class="insight" id="keepBox" hidden>
+          <h5>¿Qué hacés con este audio?</h5>
+          <p class="hint" style="margin:0 0 10px">Ya lo resolviste. Podés borrarlo del teléfono para liberar espacio o mantenerlo.</p>
+          <div class="reply-actions"><button class="btn btn-danger" data-action="audio-delete">Borrar audio</button><button class="btn btn-soft" data-action="audio-keep">Mantener</button></div>
+        </div>
+
         <button class="btn btn-soft btn-block" data-action="new-audio"><svg class="ic"><use href="#i-plus"/></svg>Analizar otro audio</button>
       </div>
     </article>
@@ -935,6 +946,7 @@ textarea.tx { overflow: hidden; }
 </div>
 
 <!-- ============ TOAST ============ -->
+<div class="proc-banner" id="procBanner" role="status" aria-live="polite" hidden><span class="spinner"></span><div><b id="procTitle">Procesando…</b><small id="procSub">No cierres Crika.</small></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite">
   <svg class="ic"><use href="#i-check"/></svg><span id="toastMsg"></span>
 </div>
@@ -1483,7 +1495,7 @@ async function openAudioFile(file, meta) {
   S.cur = { id: (meta && meta.id) || 'a' + Date.now(), name: (meta && meta.name) || file.name || 'Audio', ts: (meta && meta.ts) || Date.now(), path: meta && meta.path, file, url: URL.createObjectURL(file), text: '', replies: [], summary: '', reply: '', pick: -1, dur: 0, pcm: null, busy: false };
   a.src = S.cur.url;
   $('#acTitle').textContent = S.cur.name; $('#acSub').textContent = meta ? fmtDT(S.cur.ts) : 'Recién recibido'; $('#acBadge').textContent = 'Nuevo'; $('#acBadge').className = 'badge badge-primary';
-  $('#acPlayer').hidden = false;
+  $('#acPlayer').hidden = false; showKeep(false);
   $('#txText').value = ''; setStatus(null); $('#txBtn').hidden = true; $('#txHint').hidden = true;
   renderReplies(); showAudioCard(true); go('mensajes');
   try { const d = await decodeAudio(file); S.cur.pcm = d.pcm; S.cur.dur = d.dur; drawWave(d.pcm); $('#audioTime').textContent = mmss(d.dur); }
@@ -1493,6 +1505,7 @@ async function openAudioFile(file, meta) {
     $('#txText').value = ent.text; grow($('#txText')); processText(ent.text);
     if (ent.reply) { S.cur.reply = ent.reply; S.cur.pick = S.cur.replies.indexOf(ent.reply); renderReplies(); }
     $('#acSub').textContent = 'Transcripción lista';
+    if (NAT && meta.path && (ent.status === 'respondido' || ent.status === 'descartado')) showKeep(true);
   } else if (store.get(K.asr, false)) startTranscribe();
   else { $('#txBtn').hidden = false; $('#txHint').hidden = false; $('#txBtnLabel').textContent = 'Transcribir este audio'; }
 }
@@ -1535,7 +1548,7 @@ function openHistory(id) {
 function closeAudio() {
   const a = $('#audioEl'); a.pause(); a.removeAttribute('src'); setPlayIcon(false);
   if (S.cur && S.cur.url) URL.revokeObjectURL(S.cur.url);
-  S.cur = null; showAudioCard(false);
+  S.cur = null; showAudioCard(false); showKeep(false);
 }
 
 /* =====================================================
@@ -1612,7 +1625,7 @@ function renderHome() {
   $('#statAudiosSub').textContent = S.audios.length ? (pend ? `${pend} ${pend === 1 ? 'sin responder' : 'sin responder'}` : 'todos respondidos') : 'Elegí o compartí un audio';
 }
 
-function renderAll() { renderHome(); renderDups(); renderBadges(); renderMemories(); if (NAT) { renderWa(); renderWaAudios(); } if ($('#archivos').classList.contains('active')) renderFiles(); if ($('#bandeja').classList.contains('active')) renderInbox(); }
+function renderAll() { renderHome(); renderDups(); renderBadges(); renderMemories(); if (NAT) { renderWa(); renderWaAudios(); updateProcBanner(); } if ($('#archivos').classList.contains('active')) renderFiles(); if ($('#bandeja').classList.contains('active')) renderInbox(); }
 
 /* =====================================================
    INSTALAR
@@ -1719,9 +1732,13 @@ document.addEventListener('click', e => {
     case 'copy-reply': copyText($('#replyText').value).then(ok => toast(ok ? 'Respuesta copiada' : 'No pude copiar')); break;
     case 'wa-sent': {
       if (!$('#replyText').value.trim()) { e.preventDefault(); toast('Elegí o escribí una respuesta primero'); break; }
-      persistCurrent('respondido'); $('#acBadge').textContent = 'Respondido'; $('#acBadge').className = 'badge badge-ok'; break;
+      persistCurrent('respondido'); $('#acBadge').textContent = 'Respondido'; $('#acBadge').className = 'badge badge-ok';
+      if (NAT && S.cur && S.cur.path) showKeep(true); break;
     }
-    case 'discard-audio': persistCurrent('descartado'); closeAudio(); renderAll(); toast('Audio descartado'); break;
+    case 'discard-audio':
+      persistCurrent('descartado');
+      if (NAT && S.cur && S.cur.path) { $('#acBadge').textContent = 'Descartado'; $('#acBadge').className = 'badge badge-warn'; showKeep(true); toast('Elegí si borrás el audio o lo mantenés'); break; }
+      closeAudio(); renderAll(); toast('Audio descartado'); break;
     case 'open-audio': openHistory(el.dataset.id); break;
   }
 });
@@ -1773,7 +1790,7 @@ const mkState = (scope, sumKey) => ({
   scope, access: false, scanning: false, scanned: false, ts: null,
   roots: [], files: [], byPath: new Map(), dup: [], dupBusy: false, disk: null, folders: [], allBytes: 0, allCount: 0,
   view: 'home', back: 'home', cat: null, folder: null, title: null, note: null, filter: 'all', sort: 'size', shown: 90,
-  sel: new Set(), sum: store.get(sumKey, null), batch: null,
+  sel: new Set(), sum: null, batch: null,
 });
 const PROT = new Set(store.get(K.waProt, []));
 const KEY_PH = 'crika-phscan-v1', KEY_SCOPE = 'crika-scope-v1';
@@ -1793,6 +1810,8 @@ const CATS = {
   otr: { l: 'Otros', ic: 'folder', tone: 'blue' },
 };
 const DAY = 864e5, MB = 1048576;
+const RECENT_DAYS = 30;
+const isRecent = f => Date.now() - f.m < RECENT_DAYS * DAY;
 const FILTERS_WA = [['all', 'Todos'], ['o30', 'Más de 30 días'], ['o90', 'Más de 90 días'], ['big', 'Más de 5 MB'], ['recv', 'Recibidos'], ['sent', 'Enviados']];
 const FILTERS_PH = [['all', 'Todos'], ['o90', 'Más de 3 meses'], ['o180', 'Más de 6 meses'], ['o365', 'Más de 1 año'], ['big', 'Más de 5 MB'], ['huge', 'Más de 50 MB']];
 const SORTS = [['size', 'Más pesados'], ['new', 'Más nuevos'], ['old', 'Más viejos']];
@@ -1827,7 +1846,6 @@ const selBytesWa = () => [...W.sel].reduce((a, p) => a + ((W.byPath.get(p) || {}
 function saveSummary(T = W) {
   const di = dupInfo(T);
   T.sum = { ts: T.ts || Date.now(), count: T.files.length, bytes: totalBytes(T), dupBytes: di.extra, dupFiles: di.files, disk: T.disk };
-  store.set(T.scope === 'ph' ? KEY_PH : K.waScan, T.sum);
 }
 
 /* ---- escaneo ---- */
@@ -1858,6 +1876,22 @@ async function findDupes(T = W) {
   try { T.dup = JSON.parse(await natCall('dupes', T.scope === 'ph')); } catch (_) { T.dup = []; }
   T.dupBusy = false; saveSummary(T); renderAll();
 }
+let askedPerm = false;
+/* "Procesar" revisa TODO el teléfono (y WhatsApp con él); "Solo WhatsApp" revisa solo WhatsApp. */
+async function startProcess() {
+  if (!NAT.hasAccess()) { permSheet(); return; }
+  const all = W === PH;
+  await Promise.all(all ? [nativeScan(true, PH), nativeScan(true, WA)] : [nativeScan(true, WA)]);
+  const ok = all ? PH.scanned && WA.scanned : WA.scanned;
+  toast(ok ? (all ? 'Listo: revisé todo tu teléfono, incluido WhatsApp' : 'Listo: revisé WhatsApp') : 'No pude terminar de revisar. Probá de nuevo.');
+}
+function updateProcBanner() {
+  const b = $('#procBanner'); if (!b) return;
+  const scanning = PH.scanning || WA.scanning, dup = PH.dupBusy || WA.dupBusy;
+  b.hidden = !(scanning || dup);
+  if (scanning) { $('#procTitle').textContent = 'Procesando tu teléfono…'; $('#procSub').textContent = 'No cierres Crika. Puede tardar hasta un minuto.'; }
+  else if (dup) { $('#procTitle').textContent = 'Buscando archivos repetidos…'; $('#procSub').textContent = 'Casi listo. No cierres Crika.'; }
+}
 function permSheet() {
   openSheet(`
     <h3>Permiso para ver tu teléfono</h3>
@@ -1873,7 +1907,7 @@ function permSheet() {
 window.__natFocus = () => {
   if (!NAT) return;
   const had = W.access; W.access = NAT.hasAccess();
-  if (W.access && !had) { closeSheet(); nativeScan(false, W); if (W !== WA && !WA.scanned) nativeScan(true, WA); } else renderWa();
+  if (W.access && !had && askedPerm) { askedPerm = false; closeSheet(); startProcess(); } else renderWa();
 };
 
 /* ---- render: tarjeta de WhatsApp en Limpieza ---- */
@@ -2027,7 +2061,8 @@ function renderWa() {
       ${photoish ? photoNote() : ''}
       <div class="chips wa-chips" role="group" aria-label="Filtros">${filtersNow().map(([k, l]) => `<button class="chip" data-action="wa-filter" data-k="${k}" aria-pressed="${W.filter === k}">${l}</button>`).join('')}</div>
       <div class="seg tight" role="group" aria-label="Orden">${SORTS.map(([k, l]) => `<button data-action="wa-sort" data-k="${k}" aria-selected="${W.sort === k}">${l}</button>`).join('')}</div>
-      <div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-selall">Marcar todo lo que se ve (${thousands(all.filter(f => !isProt(f)).length)})</button></div>
+      <div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-selall">Marcar los ${thousands(all.filter(f => !isProt(f) && !isRecent(f)).length)} archivos de esta lista</button></div>
+      ${all.some(isRecent) ? `<p class="wa-sub">Los ${thousands(all.filter(isRecent).length)} archivos de los últimos ${RECENT_DAYS} días no se marcan solos: revisalos y marcalos vos si querés.</p>` : ''}
       ${all.length ? (c.thumb ? `<div class="photos wa-photos">${list.map(f => itemHTML(f, true)).join('')}</div>` : `<div class="card flush wa-list">${list.map(f => itemHTML(f, false)).join('')}</div>`) : '<div class="empty" style="padding:26px 10px"><p>No hay archivos con este filtro.</p></div>'}
       ${all.length > list.length ? `<button class="btn btn-ghost btn-block" style="margin-top:12px" data-action="wa-more">Ver más (${thousands(all.length - list.length)})</button>` : ''}
       ${barHTML()}`;
@@ -2081,13 +2116,24 @@ async function doDelete() {
 }
 function confirmDelete() {
   if (!W.sel.size) { toast('Marcá primero lo que querés borrar'); return; }
-  const n = W.sel.size, paths = [...W.sel];
-  const hasWa = paths.some(p => /whatsapp/i.test(p));
-  const media = paths.some(p => { const f = W.byPath.get(p); return f && (f.cat === 'img' || f.cat === 'vid'); });
+  const files = [...W.sel].map(p => W.byPath.get(p)).filter(Boolean);
+  if (!files.length) { W.sel = new Set(); renderWa(); toast('Esos archivos ya no están'); return; }
+  const now = Date.now();
+  const b = { w1: 0, m1: 0, m3: 0, old: 0 };
+  files.forEach(f => { const d = (now - f.m) / DAY; if (d < 7) b.w1++; else if (d < 30) b.m1++; else if (d < 90) b.m3++; else b.old++; });
+  const recent = b.w1 + b.m1;
+  const newest = files.reduce((a, f) => Math.max(a, f.m), 0);
+  const n = files.length, bytes = files.reduce((a, f) => a + f.size, 0);
+  const hasWa = files.some(f => /whatsapp/i.test(f.path));
+  const media = files.some(f => f.cat === 'img' || f.cat === 'vid');
+  const line = (l, v) => `${l}: <b>${thousands(v)}</b><br>`;
   openSheet(`<h3>¿Borrar ${thousands(n)} ${n === 1 ? 'archivo' : 'archivos'}?</h3>
-    <p class="sub">Vas a liberar <b>${fmtBytes(selBytesWa())}</b>. Se borran de tu teléfono y <b>no se pueden recuperar</b>.${hasWa ? ' En WhatsApp los archivos de WhatsApp van a aparecer como “no disponible”.' : ''}</p>
+    <p class="sub">Vas a liberar <b>${fmtBytes(bytes)}</b>. Se borran de tu teléfono y <b>no se pueden recuperar</b>.${hasWa ? ' En WhatsApp esos archivos van a aparecer como “no disponible”.' : ''}</p>
+    <div class="wa-note"><b>Qué vas a borrar, por antigüedad</b><p>${line('Últimos 7 días', b.w1)}${line('De 8 a 30 días', b.m1)}${line('De 1 a 3 meses', b.m3)}${line('De más de 3 meses', b.old)}El más nuevo es del <b>${fmtDate(newest)}</b>.</p>
+      ${recent ? `<p style="color:var(--warn);font-weight:600">Ojo: incluye ${thousands(recent)} de los últimos ${RECENT_DAYS} días.</p><button class="btn btn-soft btn-sm" data-action="wa-unrecent">Sacar los recientes de la selección</button>` : ''}</div>
     ${media ? '<p class="hint">Si son fotos o videos que querés conservar, abrí antes Google Fotos y confirmá que estén respaldados. Crika no puede verificarlo por vos.</p>' : ''}
-    <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cancelar</button><button class="btn btn-primary" data-action="wa-confirm">Sí, borrar</button></div>`);
+    <label class="row" style="margin:10px 0"><input type="checkbox" data-delok> <span class="row-main"><p>Ya lo revisé y entiendo que no se puede deshacer</p></span></label>
+    <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cancelar</button><button class="btn btn-primary" id="delOk" data-action="wa-confirm" disabled>Sí, borrar ${thousands(n)}</button></div>`);
 }
 
 function waBack() {
@@ -2101,9 +2147,9 @@ function openCat(patch) {
 }
 function natAction(a, el) {
   switch (a) {
-    case 'wa-start': nativeScan(false, W); if (W !== WA && !WA.scanned && NAT.hasAccess()) nativeScan(true, WA); return true;
-    case 'wa-perm': closeSheet(); NAT.requestAccess(); return true;
-    case 'wa-scope': W = el.dataset.k === 'wa' ? WA : PH; store.set(KEY_SCOPE, el.dataset.k); if (NAT.hasAccess() && !W.scanned && !W.scanning) nativeScan(true, W); else renderAll(); return true;
+    case 'wa-start': startProcess(); return true;
+    case 'wa-perm': askedPerm = true; closeSheet(); NAT.requestAccess(); return true;
+    case 'wa-scope': W = el.dataset.k === 'wa' ? WA : PH; store.set(KEY_SCOPE, el.dataset.k); renderAll(); return true;
     case 'wa-cat': openCat({ cat: el.dataset.k }); return true;
     case 'wa-folders': W.view = 'folders'; W.back = 'home'; renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-folder': openCat({ cat: '*', folder: el.dataset.k, back: 'folders' }); return true;
@@ -2111,10 +2157,11 @@ function natAction(a, el) {
     case 'wa-photos': if (!NAT.openPhotos()) toast('No encontré Google Fotos en este teléfono'); return true;
     case 'wa-dups': W.view = 'dups'; W.shown = 30; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-back': waBack(); return true;
-    case 'wa-filter': W.filter = el.dataset.k; W.shown = 90; renderWa(); return true;
+    case 'wa-filter': if (W.sel.size) toast('Cambiaste el filtro: se desmarcó todo para que no se borre nada oculto'); W.filter = el.dataset.k; W.shown = 90; W.sel = new Set(); renderWa(); return true;
     case 'wa-sort': W.sort = el.dataset.k; W.shown = 90; renderWa(); return true;
     case 'wa-more': W.shown += 90; renderWa(); return true;
-    case 'wa-selall': filtered().forEach(f => { if (!isProt(f)) W.sel.add(f.path); }); renderWa(); return true;
+    case 'wa-selall': { let skipped = 0; W.sel = new Set(); filtered().forEach(f => { if (isProt(f)) return; if (isRecent(f)) { skipped++; return; } W.sel.add(f.path); }); renderWa(); if (skipped) toast(`No se marcaron ${skipped} de los últimos ${RECENT_DAYS} días`); return true; }
+    case 'wa-unrecent': { [...W.sel].forEach(pp => { const f = W.byPath.get(pp); if (f && isRecent(f)) W.sel.delete(pp); }); closeSheet(); renderWa(); if (W.sel.size) setTimeout(confirmDelete, 250); else toast('Quedó todo desmarcado'); return true; }
     case 'wa-selnone': W.sel = new Set(); renderWa(); return true;
     case 'wa-dupsel': W.sel = new Set(); W.dup.forEach(g => g.slice(1).forEach(p => { const f = W.byPath.get(p); if (f && !isProt(f)) W.sel.add(p); })); renderWa(); return true;
     case 'wa-star': toggleProtWa(el.dataset.p); return true;
@@ -2123,10 +2170,17 @@ function natAction(a, el) {
     case 'wa-audio-batch': waBatch(); return true;
     case 'wa-audio-open': waOpenAudio(el.dataset.p); return true;
     case 'wa-audio-scan': nativeScan(false, WA); return true;
+    case 'wa-audio-win': audWin = el.dataset.k; store.set(KEY_AWIN, audWin); renderWaAudios(); return true;
+    case 'wa-audio-clear': markSeen(waAudioWindow().map(f => f.path)); renderAll(); toast('Listo: esos audios no vuelven a aparecer'); return true;
+    case 'upd-go': updateGo(el.dataset.u); return true;
+    case 'audio-keep': audioKeep(); return true;
+    case 'audio-delete': openSheet(`<h3>¿Borrar este audio?</h3><p class="sub">Se borra de tu teléfono y <b>no se puede recuperar</b>. La transcripción y el resumen se conservan en Crika.</p><div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cancelar</button><button class="btn btn-primary" data-action="audio-delete-yes">Sí, borrar</button></div>`); return true;
+    case 'audio-delete-yes': audioDelete(); return true;
   }
   return false;
 }
 if (NAT) document.addEventListener('change', e => {
+  const ok = e.target.closest('input[data-delok]'); if (ok) { const bt = $('#delOk'); if (bt) bt.disabled = !ok.checked; return; }
   const c = e.target.closest('input[data-wasel]'); if (!c) return;
   const p = c.dataset.wasel; if (c.checked) W.sel.add(p); else W.sel.delete(p);
   const holder = c.closest('[data-wap]'); if (holder) holder.classList.toggle('sel', c.checked);
@@ -2153,7 +2207,7 @@ function renderHomeNative() {
   $('#heroHint').textContent = ph ? 'Crika mide todo tu almacenamiento: fotos, videos, descargas y WhatsApp. No se sube nada.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y audios. No se sube nada.';
   $('#statProt').textContent = thousands(S.prot.length + PROT.size);
   $('#statAudios').textContent = thousands(S.audios.length);
-  const nuevos = WA.scanned ? waAudioList().filter(f => !waDone(f)).length : 0;
+  const nuevos = WA.scanned ? waAudioWindow().filter(f => !waDone(f)).length : 0;
   const pend = S.audios.filter(a => a.status === 'pendiente').length;
   $('#statAudiosSub').textContent = nuevos ? `${nuevos} ${nuevos === 1 ? 'audio nuevo' : 'audios nuevos'} sin escuchar` : pend ? `${pend} sin responder` : S.audios.length ? 'todos respondidos' : 'Buscá audios en Mensajes';
 }
@@ -2162,26 +2216,38 @@ function renderHomeNative() {
 const waAudioList = () => WA.files.filter(f => (f.cat === 'ptt' || f.cat === 'aud') && !f.sent && f.size <= 4 * MB).sort((a, b) => b.m - a.m);
 const waEntry = f => S.audios.find(a => a.id === 'w:' + f.path);
 const waDone = f => { const e = waEntry(f); return !!(e && e.text); };
+/* WhatsApp no le dice a Crika qué audios leíste. Por eso Crika muestra solo lo reciente que todavía no resolviste acá. */
+const KEY_SEEN = 'crika-wa-seen-v1', KEY_AWIN = 'crika-wa-win-v1';
+const WA_SEEN = new Set(store.get(KEY_SEEN, []));
+let audWin = store.get(KEY_AWIN, '24');
+const AWINS = [['6', 'Últimas 6 h'], ['24', 'Últimas 24 h'], ['48', '2 días'], ['168', '7 días']];
+const RESOLVED = ['respondido', 'descartado', 'mantenido', 'borrado'];
+function markSeen(paths) { paths.forEach(p => WA_SEEN.add(p)); store.set(KEY_SEEN, [...WA_SEEN].slice(-800)); }
+const waHandled = f => { if (WA_SEEN.has(f.path)) return true; const e = waEntry(f); return !!(e && RESOLVED.includes(e.status)); };
+const waAudioWindow = () => { const since = Date.now() - (+audWin) * 3600e3; return waAudioList().filter(f => f.m >= since && !waHandled(f)); };
 const audioBlob = async p => { const r = await fetch(fileUrl(p)); if (!r.ok) throw new Error('read'); return r.blob(); };
 
 function renderWaAudios() {
   const card = $('#waAudioCard'); if (!NAT) return;
   card.hidden = false;
   const el = $('#waAudioBody');
-  const head = `<div class="scan-top"><span class="tile tone-amber">${ic('mic')}</span><div><h3>Audios de WhatsApp</h3><p>Crika encuentra tus notas de voz, las escucha y te resume cada una con respuestas listas.</p></div></div>`;
+  const head = `<div class="scan-top"><span class="tile tone-amber">${ic('mic')}</span><div><h3>Audios de WhatsApp</h3><p>Notas de voz recientes que todavía no resolviste. Crika las escucha y te resume cada una con respuestas listas.</p></div></div>`;
   if (!NAT.hasAccess() || !WA.scanned) {
     el.innerHTML = head + (WA.scanning ? `<div class="status"><span class="spinner"></span><span>Buscando audios…</span></div>` : `<button class="btn btn-primary btn-block" data-action="wa-audio-scan">${ic('mic')}Buscar mis audios</button>`);
     return;
   }
-  const list = waAudioList(), nuevos = list.filter(f => !waDone(f));
+  const list = waAudioWindow(), nuevos = list.filter(f => !waDone(f));
   const b = WA.batch;
-  if (!list.length) { el.innerHTML = head + `<div class="status">No encontré notas de voz recibidas en este teléfono.</div><button class="btn btn-soft btn-block" style="margin-top:10px" data-action="wa-audio-scan">Buscar de nuevo</button>`; return; }
+  const winLabel = (AWINS.find(x => x[0] === audWin) || AWINS[1])[1].toLowerCase();
+  const chips = `<div class="chips wa-chips" role="group" aria-label="Período">${AWINS.map(([k, l]) => `<button class="chip" data-action="wa-audio-win" data-k="${k}" aria-pressed="${audWin === k}">${l}</button>`).join('')}</div>`;
+  if (!list.length) { el.innerHTML = head + chips + `<div class="status">No hay audios nuevos sin resolver (${winLabel}). Si esperabas alguno, probá con un período más largo.</div><button class="btn btn-soft btn-block" style="margin-top:10px" data-action="wa-audio-scan">Buscar de nuevo</button>`; return; }
   const top = b
     ? `<div class="progress"><div class="progress-bar"><i style="width:${b.total ? Math.round(b.done / b.total * 100) : 0}%"></i></div><small>${esc(b.msg)}</small></div>`
     : nuevos.length
       ? `<button class="btn btn-primary btn-block" data-action="wa-audio-batch">${ic('sparkles')}Resumir los ${Math.min(nuevos.length, 8)} más recientes</button><p class="hint">${thousands(nuevos.length)} ${nuevos.length === 1 ? 'audio sin escuchar' : 'audios sin escuchar'}. La primera vez se descarga el motor de voz (unos 75 MB).</p>`
       : `<div class="status">Ya escuché todos tus audios recientes.</div>`;
-  el.innerHTML = head + top + `<div class="card flush wa-alist">${list.slice(0, 40).map(f => {
+  const clear = !b ? `<button class="btn btn-ghost btn-block" style="margin:10px 0" data-action="wa-audio-clear">Ya los revisé: ocultar estos ${thousands(list.length)}</button>` : '';
+  el.innerHTML = head + chips + top + clear + `<div class="card flush wa-alist">${list.slice(0, 40).map(f => {
     const e = waEntry(f), ok = e && e.text;
     const badge = !ok ? '<span class="badge badge-primary"><i class="dot"></i>Nuevo</span>' : e.status === 'respondido' ? '<span class="badge badge-ok">Respondido</span>' : '<span class="badge badge-warn">Resumido</span>';
     return `<button class="row" data-action="wa-audio-open" data-p="${P(f.path)}"><span class="tile tone-amber">${ic('mic')}</span>
@@ -2191,7 +2257,7 @@ function renderWaAudios() {
 
 async function waBatch() {
   if (WA.batch) return;
-  const todo = waAudioList().filter(f => !waDone(f)).slice(0, 8);
+  const todo = waAudioWindow().filter(f => !waDone(f)).slice(0, 8);
   if (!todo.length) return;
   WA.batch = { done: 0, total: todo.length, msg: 'Preparando…' }; renderWaAudios();
   const setMsg = m => { WA.batch.msg = m; renderWaAudios(); };
@@ -2216,6 +2282,31 @@ async function waBatch() {
   toast(fails ? (fails === todo.length ? 'No pude transcribir. Revisá tu internet (la primera vez hace falta).' : `Listo. ${fails} no se pudieron leer.`) : 'Audios resumidos');
 }
 
+const showKeep = show => { const k = $('#keepBox'); if (k) k.hidden = !show; };
+function audioDone(status) {
+  const c = S.cur; if (!c || !c.path) return null;
+  markSeen([c.path]);
+  const e = S.audios.find(x => x.id === c.id); if (e) { e.status = status; store.set(K.audios, S.audios); }
+  return c.path;
+}
+function audioKeep() {
+  if (!audioDone('mantenido')) return;
+  showKeep(false); closeAudio(); renderAll(); toast('Listo: el audio queda en tu teléfono');
+}
+async function audioDelete() {
+  const c = S.cur; if (!c || !c.path) return;
+  const path = c.path;
+  $('#sheetBody').innerHTML = `<h3>Borrando…</h3><div class="status" style="margin-top:14px"><span class="spinner"></span><span>Un momento.</span></div>`;
+  try {
+    const r = JSON.parse(await natCall('del', JSON.stringify([path])));
+    if (!r.deleted) { closeSheet(); toast('No pude borrar ese audio'); return; }
+    audioDone('borrado');
+    for (const T of [WA, PH]) { T.files = T.files.filter(f => f.path !== path); T.byPath.delete(path); T.dup = T.dup.map(g => g.filter(q => q !== path)).filter(g => g.length > 1); }
+    PROT.delete(path);
+    closeSheet(); showKeep(false); closeAudio(); renderAll(); toast(`Audio borrado. Liberaste ${fmtBytes(r.freed)}`);
+  } catch (_) { closeSheet(); toast('No pude borrar. Revisá el permiso de Crika.'); }
+}
+
 async function waOpenAudio(p) {
   const f = WA.byPath.get(p); if (!f) return;
   try {
@@ -2223,6 +2314,33 @@ async function waOpenAudio(p) {
     const file = new File([blob], f.name, { type: blob.type || 'audio/ogg', lastModified: f.m });
     openAudioFile(file, { id: 'w:' + p, name: 'Nota de voz · ' + fmtDT(f.m), ts: f.m, path: p, entry: ent });
   } catch (_) { toast('No pude abrir ese audio'); }
+}
+
+/* ---- actualización de Crika (busca la versión nueva en GitHub) ---- */
+async function checkUpdate() {
+  if (!NAT || !NAT.versionCode) return;
+  try {
+    const cur = NAT.versionCode();
+    const r = JSON.parse(await natCall('checkUpdate'));
+    if (r.url && r.code > cur) updateSheet(r, cur);
+  } catch (_) { /* sin internet o sin versión nueva: no molesta */ }
+}
+function updateSheet(r, cur) {
+  openSheet(`<h3>Hay una versión nueva de Crika</h3>
+    <p class="sub">Tenés la versión ${cur} y ya está lista la ${r.code}. Se descarga y se instala encima de la actual, <b>sin desinstalar nada</b>: tus datos se conservan.</p>
+    <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Más tarde</button><button class="btn btn-primary" data-action="upd-go" data-u="${esc(r.url)}">Actualizar ahora</button></div>`);
+}
+async function updateGo(url) {
+  openSheet(`<h3>Descargando la versión nueva…</h3><div class="progress" style="margin-top:14px"><div class="progress-bar"><i id="updBar" style="width:2%"></i></div><small id="updMsg">Un momento, no cierres Crika.</small></div>`);
+  window.__updProgress = pct => { const b = $('#updBar'); if (b) b.style.width = Math.max(2, pct) + '%'; const m = $('#updMsg'); if (m) m.textContent = pct + '%'; };
+  try {
+    await natCall('installUpdate', url);
+    $('#sheetBody').innerHTML = `<h3>Casi listo</h3><p class="sub">Android te va a pedir confirmar la instalación: tocá <b>Actualizar</b> o <b>Instalar</b>. Crika se reinicia sola.</p><div class="sheet-actions"><button class="btn btn-primary" data-action="close">Entendido</button></div>`;
+  } catch (e) {
+    if (String(e.message) === 'perm') {
+      $('#sheetBody').innerHTML = `<h3>Falta un permiso</h3><p class="sub">Se abrió una pantalla de Android: activá <b>“Permitir desde esta fuente”</b> para Crika, volvé y tocá Actualizar otra vez.</p><div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cerrar</button><button class="btn btn-primary" data-action="upd-go" data-u="${esc(url)}">Actualizar</button></div>`;
+    } else { closeSheet(); toast('No pude actualizar ahora. Probá de nuevo en un rato.'); }
+  }
 }
 
 /* ---- compartir hacia Crika y botón atrás ---- */
@@ -2251,10 +2369,10 @@ if (NAT) {
       <li><span>Crika mide el espacio, encuentra repetidos, archivos pesados y fotos viejas de la cámara.</span></li>
       <li><span>Marcás lo que sobra y confirmás: se borra del teléfono.</span></li></ol></div>
     <div><h4>${ic('mic')}Audios de WhatsApp</h4><ol class="steps">
-      <li><span>En <b>Mensajes</b>, Crika encuentra tus notas de voz nuevas.</span></li>
+      <li><span>En <b>Mensajes</b>, Crika muestra las notas de voz recientes que todavía no resolviste (elegís el período).</span></li>
       <li><span>Las escucha, las transcribe y te las resume.</span></li>
-      <li><span>Elegís una respuesta sugerida y la enviás por WhatsApp.</span></li></ol></div>`;
-  $('#howNote').textContent = 'Crika no lee tus chats: trabaja con los archivos que se guardan en tu teléfono. No puede saber de qué grupo viene cada archivo, qué mensajes están sin leer, ni si una foto ya está en Google Fotos (eso lo verifica Google Fotos con “Liberar espacio”).';
+      <li><span>Elegís una respuesta sugerida, la enviás por WhatsApp y decidís si borrás el audio o lo mantenés.</span></li></ol></div>`;
+  $('#howNote').textContent = (NAT.versionCode ? 'Crika versión ' + NAT.versionCode() + '. ' : '') + 'Crika no lee tus chats: trabaja con los archivos que se guardan en tu teléfono. No puede saber de qué grupo viene cada archivo, qué mensajes están sin leer, ni si una foto ya está en Google Fotos (eso lo verifica Google Fotos con “Liberar espacio”).';
 }
 
 
@@ -2264,6 +2382,7 @@ if (NAT) {
 drawWave(null);
 renderAll();
 renderFiles();
+if (NAT) setTimeout(checkUpdate, 1500);
 updateInstallUI();
 const ringTarget = $('#ringBar').style.strokeDashoffset;
 $('#ringBar').style.strokeDashoffset = CIRC;

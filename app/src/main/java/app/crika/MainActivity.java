@@ -395,6 +395,71 @@ public class MainActivity extends Activity {
             }
         }
 
+        /** Número de versión de esta instalación de Crika. */
+        @JavascriptInterface
+        public int versionCode() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
+        /** Consulta en GitHub cuál es la última versión publicada. */
+        @JavascriptInterface
+        public void checkUpdate(final int id) {
+            pool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        reply(id, true, Updater.latest().toString());
+                    } catch (Throwable t) {
+                        reply(id, false, String.valueOf(t.getMessage()));
+                    }
+                }
+            });
+        }
+
+        /** Descarga la versión nueva y la entrega al instalador de Android. */
+        @JavascriptInterface
+        public void installUpdate(final int id, final String url) {
+            pool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+                                    } catch (Exception ignored) {
+                                    }
+                                }
+                            });
+                            reply(id, false, "perm");
+                            return;
+                        }
+                        File apk = Updater.download(MainActivity.this, url, new Updater.Progress() {
+                            @Override
+                            public void on(final int percent) {
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        if (web != null) web.evaluateJavascript("window.__updProgress&&window.__updProgress(" + percent + ")", null);
+                                    }
+                                });
+                            }
+                        });
+                        Updater.install(MainActivity.this, apk);
+                        reply(id, true, "ok");
+                    } catch (Throwable t) {
+                        reply(id, false, String.valueOf(t.getMessage()));
+                    }
+                }
+            });
+        }
+
         /** Nombre del archivo compartido con Crika (o vacío). Se pide una sola vez. */
         @JavascriptInterface
         public String takeShared() {

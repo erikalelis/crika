@@ -10,8 +10,10 @@ android {
         applicationId 'app.crika'
         minSdk 24
         targetSdk 34
-        versionCode 2
-        versionName '2.0'
+        // GitHub numera cada compilación (GITHUB_RUN_NUMBER): así cada versión nueva es más alta que la anterior
+        def runNumber = Math.max((System.getenv('GITHUB_RUN_NUMBER') ?: '3').toInteger(), 3)
+        versionCode runNumber
+        versionName "2.${runNumber}"
     }
 
     signingConfigs {
