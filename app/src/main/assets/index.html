@@ -709,6 +709,7 @@ textarea.tx { overflow: hidden; }
             <small id="heroRecLabel">Espacio que podés liberar</small>
             <div class="big" id="heroRecover">0 MB</div>
           </div>
+          <div id="homeScope"></div>
           <button class="btn btn-hero btn-block" id="analyzeBtn" data-action="pick-photos"><svg class="ic"><use href="#i-sparkles"/></svg><span id="analyzeLabel">Analizar mis fotos</span></button>
           <p class="hero-hint" id="heroHint">Elegí tus fotos o un álbum completo. Crika busca duplicadas y parecidas.</p>
         </div>
@@ -1793,7 +1794,7 @@ const mkState = (scope, sumKey) => ({
   sel: new Set(), sum: null, batch: null,
 });
 const PROT = new Set(store.get(K.waProt, []));
-const KEY_PH = 'crika-phscan-v1', KEY_SCOPE = 'crika-scope-v1';
+const KEY_PH = 'crika-phscan-v1', KEY_SCOPE = 'crika-scope-v2';
 const WA = mkState('wa', K.waScan), PH = mkState('ph', KEY_PH);
 let W = store.get(KEY_SCOPE, 'ph') === 'wa' ? WA : PH;
 const CATS = {
@@ -2204,6 +2205,7 @@ function renderHomeNative() {
   $('#heroRecover').textContent = sum ? fmtBytes(sum.dupBytes) : '0 MB';
   $('#analyzeLabel').textContent = sum ? 'Analizar de nuevo' : ph ? 'Analizar mi teléfono' : 'Analizar WhatsApp';
   $('#analyzeBtn').dataset.action = 'wa-start';
+  $('#homeScope').innerHTML = scopeSeg();
   $('#heroHint').textContent = ph ? 'Crika mide todo tu almacenamiento: fotos, videos, descargas y WhatsApp. No se sube nada.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y audios. No se sube nada.';
   $('#statProt').textContent = thousands(S.prot.length + PROT.size);
   $('#statAudios').textContent = thousands(S.audios.length);
