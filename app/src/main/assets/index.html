@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crika – Inteligencia para tu celular</title>
-<meta name="description" content="Crika ordena tu celular con inteligencia: fotos duplicadas, recuerdos protegidos y audios de WhatsApp transcriptos con respuestas sugeridas.">
+<meta name="description" content="Crika ordena y limpia tu celular: fotos duplicadas, archivos repetidos y pesados, recuerdos protegidos.">
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -595,6 +595,22 @@ textarea.tx { overflow: hidden; }
 .wa-note > b { display: block; margin-bottom: 4px; color: var(--warn); }
 .wa-bar-info b { white-space: nowrap; }
 .wa-note p { margin: 0 0 10px; color: var(--muted); line-height: 1.4; }
+
+/* limpieza masiva / uno a uno */
+.mode-pick { display: grid; gap: 12px; margin: 4px 0 6px; }
+.mode { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 16px; border-radius: 18px; background: var(--surface); border: 2px solid var(--line); }
+.mode.primary { border-color: var(--primary-2); background: var(--primary-soft); }
+.mode h4 { font-size: 1.05rem; margin: 0 0 2px; }
+.mode p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.35; }
+.mass-h { margin: 16px 0 8px; font-size: .95rem; }
+.mass-row { width: 100%; text-align: left; }
+.mass-row .mchk { flex: none; width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--wave-off); display: grid; place-items: center; color: transparent; }
+.mass-row .mchk .ic { width: 16px; height: 16px; }
+.mass-row[aria-checked="true"] .mchk { background: var(--primary); border-color: var(--primary); color: #fff; }
+.mass-total { margin: 14px 0 12px; padding: 14px; border-radius: 16px; background: var(--primary-soft); text-align: center; }
+.mass-total b { display: block; font-size: 1.8rem; line-height: 1.15; }
+.mass-total small { display: block; color: var(--muted); }
+button:disabled { opacity: .5; }
 </style>
 </head>
 
@@ -647,8 +663,6 @@ textarea.tx { overflow: hidden; }
     <button class="side-item" data-target="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Inicio</button>
     <button class="side-item" data-target="limpieza"><svg class="ic"><use href="#i-sparkles"/></svg>Limpieza</button>
     <button class="side-item" data-target="recuerdos"><svg class="ic"><use href="#i-heart"/></svg>Recuerdos</button>
-    <button class="side-item" data-target="mensajes"><svg class="ic"><use href="#i-chat"/></svg>Mensajes</button>
-    <button class="side-item" data-target="bandeja"><svg class="ic"><use href="#i-inbox"/></svg>Bandeja<span class="count-badge" data-pending hidden>0</span></button>
     <button class="side-item" data-target="archivos"><svg class="ic"><use href="#i-folder"/></svg>Archivos</button>
   </nav>
   <div class="side-foot">
@@ -667,10 +681,6 @@ textarea.tx { overflow: hidden; }
       <img class="brand-mark" src="icons/icon-192.png" alt="" width="40" height="40">
       <svg class="wordmark" viewBox="0 0 308 100" role="img" aria-label="Crika"><use href="#wm"/></svg>
     </div>
-    <button class="icon-btn" data-target="bandeja" aria-label="Bandeja inteligente">
-      <svg class="ic"><use href="#i-inbox"/></svg>
-      <span class="count-badge" data-pending hidden>0</span>
-    </button>
   </header>
 
   <!-- ================= INICIO ================= -->
@@ -688,7 +698,7 @@ textarea.tx { overflow: hidden; }
 
     <div class="notice">
       <svg class="ic"><use href="#i-shield"/></svg>
-      <div><b>Tu privacidad primero</b><span>Crika analiza tus fotos y audios dentro de tu celular. Nada se sube a internet. Vos tenés la última decisión.</span></div>
+      <div><b>Tu privacidad primero</b><span>Crika analiza tus fotos y archivos dentro de tu celular. Nada se sube a internet. Vos tenés la última decisión.</span></div>
     </div>
 
     <div class="home-grid">
@@ -724,15 +734,6 @@ textarea.tx { overflow: hidden; }
         </span>
       </button>
 
-      <button class="card stat" data-target="mensajes">
-        <span class="tile tone-amber"><svg class="ic"><use href="#i-mic"/></svg></span>
-        <span class="stat-body">
-          <small>Audios transcriptos</small>
-          <b id="statAudios">0</b>
-          <em id="statAudiosSub">Elegí o compartí un audio</em>
-        </span>
-      </button>
-
       <div class="card wide">
         <h3 style="font-size:1.05rem;margin-bottom:14px">Cómo funciona</h3>
         <div class="how" id="howBox">
@@ -742,14 +743,6 @@ textarea.tx { overflow: hidden; }
               <li><span>Elegís tus fotos en <b>Limpieza</b>.</span></li>
               <li><span>Crika marca las duplicadas y parecidas.</span></li>
               <li><span>Vos decidís cuáles borrar desde tu galería.</span></li>
-            </ol>
-          </div>
-          <div>
-            <h4><svg class="ic"><use href="#i-mic"/></svg>Audios de WhatsApp</h4>
-            <ol class="steps">
-              <li><span>Compartís (o elegís) un audio en <b>Mensajes</b>.</span></li>
-              <li><span>Crika lo escucha, lo transcribe y sugiere respuestas.</span></li>
-              <li><span>Elegís una y la enviás por WhatsApp.</span></li>
             </ol>
           </div>
         </div>
@@ -810,88 +803,6 @@ textarea.tx { overflow: hidden; }
     <p class="hint" id="memNote" hidden>Se guarda una miniatura chica y una huella de cada foto solo en este navegador. Las fotos originales no se copian.</p>
   </section>
 
-  <!-- ================= MENSAJES ================= -->
-  <section id="mensajes" class="view" aria-label="Mensajes inteligentes">
-    <div class="page-head">
-      <h2>Mensajes inteligentes</h2>
-      <p>Crika escucha el audio, lo transcribe y te sugiere qué responder. Vos solo enviás.</p>
-    </div>
-
-    <div class="card wa-card" id="waAudioCard" hidden><div id="waAudioBody"></div></div>
-
-    <div class="dz" id="audioDrop">
-      <div class="art"><svg class="ic"><use href="#i-mic"/></svg></div>
-      <h3>Traé un audio de WhatsApp</h3>
-      <p>Elegí un audio, o compartilo con Crika desde WhatsApp (Android, con la app instalada). Se procesa dentro de tu celular.</p>
-      <div class="dz-actions">
-        <button class="btn btn-primary" data-action="pick-audio"><svg class="ic"><use href="#i-mic"/></svg>Elegir audio</button>
-      </div>
-    </div>
-
-    <article class="card chat" id="audioCard" hidden>
-      <div class="chat-head">
-        <div class="avatar"><svg class="ic"><use href="#i-mic"/></svg></div>
-        <div><b id="acTitle">Audio</b><small id="acSub"></small></div>
-        <span class="badge badge-primary" id="acBadge">Nuevo</span>
-      </div>
-      <div class="chat-body">
-        <div class="audio" id="acPlayer">
-          <button class="play" id="playBtn" data-action="play" aria-label="Reproducir audio"><svg class="ic ic-fill" id="playIcon"><use href="#i-play"/></svg></button>
-          <div class="wave" id="wave" aria-hidden="true"></div>
-          <time id="audioTime">0:00</time>
-        </div>
-        <audio id="audioEl" preload="metadata" class="vh"></audio>
-
-        <div class="status" id="txStatus" hidden></div>
-        <button class="btn btn-primary btn-block" id="txBtn" data-action="transcribe" hidden><svg class="ic"><use href="#i-sparkles"/></svg><span id="txBtnLabel">Transcribir</span></button>
-        <p class="hint" id="txHint" hidden style="margin-top:-6px">La primera vez Crika descarga un motor de voz (unos 75 MB, una sola vez). Después funciona también sin internet.</p>
-
-        <div class="insight">
-          <h5><svg class="ic"><use href="#i-mic"/></svg>Transcripción</h5>
-          <textarea class="tx" id="txText" aria-label="Transcripción" placeholder="Acá aparece lo que dice el audio. También podés escribirlo o pegarlo."></textarea>
-        </div>
-
-        <div class="insight ok" id="understood" hidden>
-          <h5><svg class="ic"><use href="#i-sparkles"/></svg>Crika entendió</h5>
-          <p id="understoodText"></p>
-        </div>
-
-        <div class="reply" id="replyBox" hidden>
-          <h5>Respuestas sugeridas</h5>
-          <div class="replies" id="replies" role="radiogroup" aria-label="Respuestas sugeridas"></div>
-          <textarea class="tx" id="replyText" aria-label="Respuesta que vas a enviar"></textarea>
-          <div class="reply-actions" style="margin-top:12px">
-            <a class="btn btn-primary" id="waBtn" href="#" target="_blank" rel="noopener" data-action="wa-sent"><svg class="ic"><use href="#i-send"/></svg>Enviar por WhatsApp</a>
-            <button class="btn btn-ghost" data-action="copy-reply">Copiar</button>
-            <button class="btn btn-danger" data-action="discard-audio">Descartar</button>
-          </div>
-          <p class="hint">WhatsApp se abre con la respuesta lista: elegís el chat y tocás enviar. Crika no envía nada por su cuenta.</p>
-        </div>
-
-        <div class="insight" id="keepBox" hidden>
-          <h5>¿Qué hacés con este audio?</h5>
-          <p class="hint" style="margin:0 0 10px">Ya lo resolviste. Podés borrarlo del teléfono para liberar espacio o mantenerlo.</p>
-          <div class="reply-actions"><button class="btn btn-danger" data-action="audio-delete">Borrar audio</button><button class="btn btn-soft" data-action="audio-keep">Mantener</button></div>
-        </div>
-
-        <button class="btn btn-soft btn-block" data-action="new-audio"><svg class="ic"><use href="#i-plus"/></svg>Analizar otro audio</button>
-      </div>
-    </article>
-  </section>
-
-  <!-- ================= BANDEJA ================= -->
-  <section id="bandeja" class="view" aria-label="Bandeja inteligente">
-    <div class="page-head">
-      <h2>Bandeja inteligente</h2>
-      <p>Tus audios procesados y tus análisis, ordenados.</p>
-    </div>
-    <div class="card flush" id="inboxList"></div>
-    <div class="empty" id="inboxEmpty" hidden>
-      <div class="art"><svg class="ic"><use href="#i-inbox"/></svg></div>
-      <h3>Bandeja vacía</h3>
-      <p>Cuando analices audios o fotos, van a aparecer acá.</p>
-    </div>
-  </section>
 
   <!-- ================= ARCHIVOS ================= -->
   <section id="archivos" class="view" aria-label="Archivos">
@@ -910,7 +821,6 @@ textarea.tx { overflow: hidden; }
       <button class="chip" data-chip="Fotos" aria-pressed="false">Fotos</button>
       <button class="chip" data-chip="Duplicadas" aria-pressed="false">Duplicadas</button>
       <button class="chip" data-chip="Protegidas" aria-pressed="false">Protegidas</button>
-      <button class="chip" data-chip="Audios" aria-pressed="false">Audios</button>
     </div>
 
     <div class="card flush" id="fileList"></div>
@@ -928,7 +838,6 @@ textarea.tx { overflow: hidden; }
   <button class="nav-item" data-target="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg><span>Inicio</span></button>
   <button class="nav-item" data-target="limpieza"><svg class="ic"><use href="#i-sparkles"/></svg><span>Limpieza</span></button>
   <button class="nav-item" data-target="recuerdos"><svg class="ic"><use href="#i-heart"/></svg><span>Recuerdos</span></button>
-  <button class="nav-item" data-target="mensajes"><svg class="ic"><use href="#i-chat"/></svg><span>Mensajes</span></button>
   <button class="nav-item" data-target="archivos"><svg class="ic"><use href="#i-folder"/></svg><span>Archivos</span></button>
 </nav>
 </div>
@@ -936,7 +845,6 @@ textarea.tx { overflow: hidden; }
 <!-- entradas de archivos (ocultas) -->
 <input class="vh" type="file" id="photoInput" accept="image/*" multiple tabindex="-1" aria-hidden="true">
 <input class="vh" type="file" id="protectInput" accept="image/*" multiple tabindex="-1" aria-hidden="true">
-<input class="vh" type="file" id="audioInput" accept="audio/*,.opus,.ogg,.m4a,.aac,.mp3,.wav,.amr,.3gp" tabindex="-1" aria-hidden="true">
 
 <!-- ============ SHEET ============ -->
 <div class="sheet-back" id="sheetBack" aria-hidden="true">
@@ -985,7 +893,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } },
 };
-const K = { prot: 'crika-protected-v1', audios: 'crika-audios-v1', scan: 'crika-lastscan-v1', asr: 'crika-asr-ready-v1', dismiss: 'crika-install-dismissed', waScan: 'crika-wascan-v1', waProt: 'crika-waprot-v1' };
+const K = { prot: 'crika-protected-v1', scan: 'crika-lastscan-v1', asr: 'crika-asr-ready-v1', dismiss: 'crika-install-dismissed', waScan: 'crika-wascan-v1', waProt: 'crika-waprot-v1' };
 
 /* =====================================================
    Estado (todo arranca en cero)
@@ -993,9 +901,7 @@ const K = { prot: 'crika-protected-v1', audios: 'crika-audios-v1', scan: 'crika-
 const S = {
   photos: [], groups: [], sel: new Set(), sim: 'similar', scanning: false,
   prot: store.get(K.prot, []),
-  audios: store.get(K.audios, []),
   lastScan: store.get(K.scan, null),
-  cur: null,
   filter: 'Todos', query: '',
 };
 
@@ -1017,7 +923,6 @@ function go(id) {
     if (b.dataset.target === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
   if (id === 'archivos') renderFiles();
-  if (id === 'bandeja') renderInbox();
   if (id === 'recuerdos') renderMemories();
   $('#main').scrollTop = 0;
 }
@@ -1309,277 +1214,6 @@ async function protectFiles(list) {
   toast(added ? `Protegiste ${added} ${added === 1 ? 'foto' : 'fotos'}${dup ? ` (${dup} ya estaban)` : ''}` : dup ? 'Esas fotos ya estaban protegidas' : 'No pude leer esas fotos');
 }
 
-/* =====================================================
-   AUDIOS: decodificar, reproducir, transcribir, sugerir
-   ===================================================== */
-async function decodeAudio(blob) {
-  const AC = window.AudioContext || window.webkitAudioContext;
-  const ctx = new AC({ sampleRate: 16000 });
-  try {
-    const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
-    const n = buf.numberOfChannels, len = buf.length; let mono;
-    if (n === 1) mono = buf.getChannelData(0);
-    else { mono = new Float32Array(len); for (let c = 0; c < n; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i] / n; } }
-    return { pcm: mono, dur: buf.duration };
-  } finally { if (ctx.close) ctx.close(); }
-}
-
-const BARS = 34;
-function drawWave(pcm) {
-  const heights = [];
-  if (pcm && pcm.length) {
-    const seg = Math.floor(pcm.length / BARS); let mx = 0;
-    for (let b = 0; b < BARS; b++) { let p = 0; for (let i = b * seg; i < (b + 1) * seg; i += Math.max(1, Math.floor(seg / 200))) p = Math.max(p, Math.abs(pcm[i])); heights.push(p); mx = Math.max(mx, p); }
-    for (let b = 0; b < BARS; b++) heights[b] = Math.max(.12, heights[b] / (mx || 1));
-  } else for (let b = 0; b < BARS; b++) heights.push(.25 + ((b * 37) % 10) / 20);
-  $('#wave').innerHTML = heights.map(h => `<i style="--h:${Math.round(h * 100)}%"></i>`).join('');
-}
-function paintAudio() {
-  const a = $('#audioEl'), d = (a.duration && isFinite(a.duration)) ? a.duration : (S.cur && S.cur.dur) || 0;
-  const bars = $$('#wave i'), n = d ? Math.round(a.currentTime / d * bars.length) : 0;
-  bars.forEach((b, i) => b.classList.toggle('on', i < n));
-  $('#audioTime').textContent = a.currentTime > 0 && !a.paused ? mmss(a.currentTime) : mmss(d);
-}
-function setPlayIcon(playing) {
-  $('#playIcon').innerHTML = `<use href="#i-${playing ? 'pause' : 'play'}"/>`;
-  $('#playBtn').setAttribute('aria-label', playing ? 'Pausar audio' : 'Reproducir audio');
-}
-
-/* ---- motor de voz (Whisper en el dispositivo) ---- */
-let asrPromise = null;
-function getWhisper(cb) {
-  if (!asrPromise) {
-    asrPromise = (async () => {
-      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
-      return pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { dtype: 'q8', device: 'wasm', progress_callback: cb });
-    })();
-    asrPromise.catch(() => { asrPromise = null; });
-  }
-  return asrPromise;
-}
-async function transcribe(pcm, setStatus) {
-  if (typeof window.CRIKA_TRANSCRIBE === 'function') return window.CRIKA_TRANSCRIBE(pcm, setStatus);
-  const files = {};
-  const asr = await getWhisper(e => {
-    if (e.status === 'progress' && e.total) {
-      files[e.file] = { l: e.loaded, t: e.total };
-      let l = 0, t = 0; for (const k in files) { l += files[k].l; t += files[k].t; }
-      setStatus('spin', `Descargando el motor de voz… ${Math.round(l / t * 100)}% (solo la primera vez)`);
-    }
-  });
-  setStatus('spin', 'Escuchando y transcribiendo…');
-  const out = await asr(pcm, { language: 'spanish', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 });
-  return (out && out.text ? out.text : '').trim();
-}
-
-/* ---- entendimiento y respuestas sugeridas (reglas en español rioplatense) ---- */
-const norm = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-const NUM = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12 };
-const DAYNAME = { lunes: 'lunes', martes: 'martes', miercoles: 'miércoles', jueves: 'jueves', viernes: 'viernes', sabado: 'sábado', domingo: 'domingo' };
-const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-
-function findDay(n) {
-  const t = n.replace(/de la manana/g, 'DELAMAN');
-  const m = t.match(/\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
-  if (m) return 'el ' + DAYNAME[m[1]];
-  if (/\bpasado manana\b/.test(t)) return 'pasado mañana';
-  if (/\bmanana\b/.test(t)) return 'mañana';
-  if (/\bhoy\b/.test(t)) return 'hoy';
-  if (/\b(finde|fin de semana)\b/.test(t)) return 'el fin de semana';
-  return null;
-}
-function findTime(n) {
-  let h = null, m = 0, mt;
-  if ((mt = n.match(/\b(\d{1,2})[:.](\d{2})\b/))) { h = +mt[1]; m = +mt[2]; }
-  else if ((mt = n.match(/\b(?:a las|a la|tipo|como a las|sobre las)\s+(\d{1,2}|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\b(\s+y media|\s+y cuarto|\s+menos cuarto)?/))) {
-    h = /^\d+$/.test(mt[1]) ? +mt[1] : NUM[mt[1]];
-    if (mt[2]) m = /media/.test(mt[2]) ? 30 : /y cuarto/.test(mt[2]) ? 15 : -15;
-  } else if ((mt = n.match(/\b(\d{1,2})\s*(?:hs|horas|h)\b/))) h = +mt[1];
-  else if ((mt = n.match(/\b(\d{1,2})\s+de la (tarde|noche|manana)\b/))) h = +mt[1];
-  if (h === null || h > 24) return null;
-  if (m < 0) { h -= 1; m = 45; }
-  if (/de la (tarde|noche)/.test(n) && h < 12) h += 12;
-  else if (/\b(a la|de la) noche\b/.test(n) && h < 12 && h >= 6) h += 12;
-  return { h, m };
-}
-const fmtTime = t => t.m ? `${t.h}:${String(t.m).padStart(2, '0')} hs` : `${t.h} hs`;
-
-function analyze(text) {
-  const raw = text.trim();
-  if (!raw) return null;
-  const n = norm(raw);
-  const day = findDay(n), time = findTime(n);
-  const meeting = /(juntar|juntamos|reunion|vernos|verte|quedar|quedamos|encontr|almorz|almuerzo|cenar|cena\b|cafe|tomar algo|llamada|videollamada|charlar|pasar por)/.test(n);
-  const thanks = /gracias/.test(n);
-  const request = /(podes|puedes|podrias|te viene|te parece|avisame|confirmame|me pasas|me mandas|mandame|enviame|pasame|necesito|fijate|te acordas|sabes si|\?)/.test(n) || raw.includes('¿');
-  const urgent = /(urgente|ya mismo|lo antes posible|cuanto antes|apurado)/.test(n);
-  const purposeM = raw.match(/para\s+((?:revisar|ver|hablar|charlar|definir|planear|organizar|terminar|cerrar|coordinar|preparar|repasar|decidir)[^.,;!?]{0,60})/i);
-  const purpose = purposeM ? purposeM[1].trim() : '';
-  const when = [day, time ? `a las ${fmtTime(time)}` : ''].filter(Boolean).join(' ');
-
-  let summary, replies;
-  if (meeting && (day || time)) {
-    const what = /reunion|revisar|proyecto/.test(n) ? 'una reunión' : 'un encuentro';
-    summary = `Propone coordinar ${what} ${when}${purpose ? ' para ' + purpose : ''}.`;
-    replies = [
-      day && time ? `Sí, perfecto. ${cap(when)} me viene bien. Nos vemos.` : day ? `Sí, perfecto. ${cap(day)} me viene bien. ¿A qué hora?` : `Sí, perfecto. A las ${fmtTime(time)} me viene bien. ¿Qué día?`,
-      'Ese horario me queda complicado. ¿Lo pasamos para otro momento? Decime cuándo te viene bien.',
-      'Dejame confirmar mi agenda y te aviso en un rato.',
-    ];
-  } else if (meeting) {
-    summary = 'Propone juntarse o hablar, pero no dice cuándo.';
-    replies = ['Sí, dale. ¿Cuándo te viene bien?', 'Ahora no puedo. ¿Lo vemos otro día?', 'Dejame ver mi agenda y te confirmo.'];
-  } else if (thanks && !request) {
-    summary = 'Te agradece.';
-    replies = ['¡De nada! Cualquier cosa avisame.', 'Un placer, ¡abrazo!', 'Cuando quieras, contá conmigo.'];
-  } else if (request) {
-    summary = 'Te pide algo o te hace una pregunta y espera respuesta.';
-    replies = ['Sí, dale. Ya me ocupo y te aviso.', 'Ahora no puedo, ¿lo vemos más tarde?', 'Dejame fijarme y te confirmo.'];
-  } else {
-    summary = 'Mensaje informativo.';
-    replies = ['Recibí tu audio. Lo reviso y te respondo en un rato.', 'Gracias por avisar, lo tengo en cuenta.', 'Dale, hablamos más tarde.'];
-  }
-  if (urgent) summary += ' Parece urgente.';
-  return { summary, replies };
-}
-
-/* ---- tarjeta de audio ---- */
-function setStatus(kind, msg) {
-  const el = $('#txStatus');
-  if (!kind) { el.hidden = true; return; }
-  el.hidden = false; el.className = 'status' + (kind === 'err' ? ' err' : '');
-  el.innerHTML = (kind === 'spin' ? '<span class="spinner"></span>' : '') + `<span>${esc(msg)}</span>`;
-}
-function showAudioCard(show) {
-  $('#audioCard').hidden = !show; $('#audioDrop').hidden = show;
-}
-function updateWa() {
-  const t = $('#replyText').value.trim(), a = $('#waBtn');
-  a.href = t ? 'https://wa.me/?text=' + encodeURIComponent(t) : '#';
-  a.setAttribute('aria-disabled', String(!t)); a.style.opacity = t ? '' : '.5';
-}
-
-function renderReplies() {
-  const c = S.cur;
-  if (!c || !c.replies.length) { $('#replyBox').hidden = true; $('#understood').hidden = true; return; }
-  $('#understood').hidden = false; $('#understoodText').textContent = c.summary;
-  $('#replyBox').hidden = false;
-  $('#replies').innerHTML = c.replies.map((r, i) => `<button class="rep" role="radio" aria-checked="${c.pick === i}" data-action="use-reply" data-i="${i}"><span class="rd"></span><span>${esc(r)}</span></button>`).join('');
-  $('#replyText').value = c.reply; grow($('#replyText')); updateWa();
-}
-
-function processText(text, keepReply) {
-  const c = S.cur; if (!c) return;
-  c.text = text;
-  const a = analyze(text);
-  if (!a) { c.replies = []; c.summary = ''; c.reply = ''; c.pick = -1; }
-  else {
-    c.replies = a.replies; c.summary = a.summary;
-    if (!keepReply) { c.pick = 0; c.reply = a.replies[0]; }
-  }
-  renderReplies();
-  persistCurrent();
-}
-
-function persistCurrent(status) {
-  const c = S.cur; if (!c || !c.text) return;
-  let e = S.audios.find(x => x.id === c.id);
-  if (!e) { e = { id: c.id, name: c.name, ts: c.ts, status: 'pendiente' }; S.audios.push(e); if (S.audios.length > 200) S.audios.shift(); }
-  e.text = c.text; e.reply = c.reply || ''; e.summary = c.summary || ''; if (c.path) e.path = c.path; if (status) e.status = status;
-  store.set(K.audios, S.audios);
-  renderHome(); renderBadges();
-}
-
-async function openAudioFile(file, meta) {
-  if (S.cur && S.cur.url) URL.revokeObjectURL(S.cur.url);
-  const a = $('#audioEl'); a.pause(); setPlayIcon(false);
-  S.cur = { id: (meta && meta.id) || 'a' + Date.now(), name: (meta && meta.name) || file.name || 'Audio', ts: (meta && meta.ts) || Date.now(), path: meta && meta.path, file, url: URL.createObjectURL(file), text: '', replies: [], summary: '', reply: '', pick: -1, dur: 0, pcm: null, busy: false };
-  a.src = S.cur.url;
-  $('#acTitle').textContent = S.cur.name; $('#acSub').textContent = meta ? fmtDT(S.cur.ts) : 'Recién recibido'; $('#acBadge').textContent = 'Nuevo'; $('#acBadge').className = 'badge badge-primary';
-  $('#acPlayer').hidden = false; showKeep(false);
-  $('#txText').value = ''; setStatus(null); $('#txBtn').hidden = true; $('#txHint').hidden = true;
-  renderReplies(); showAudioCard(true); go('mensajes');
-  try { const d = await decodeAudio(file); S.cur.pcm = d.pcm; S.cur.dur = d.dur; drawWave(d.pcm); $('#audioTime').textContent = mmss(d.dur); }
-  catch (_) { S.cur.pcm = null; drawWave(null); $('#audioTime').textContent = '–:––'; }
-  const ent = meta && meta.entry;
-  if (ent && ent.text) {
-    $('#txText').value = ent.text; grow($('#txText')); processText(ent.text);
-    if (ent.reply) { S.cur.reply = ent.reply; S.cur.pick = S.cur.replies.indexOf(ent.reply); renderReplies(); }
-    $('#acSub').textContent = 'Transcripción lista';
-    if (NAT && meta.path && (ent.status === 'respondido' || ent.status === 'descartado')) showKeep(true);
-  } else if (store.get(K.asr, false)) startTranscribe();
-  else { $('#txBtn').hidden = false; $('#txHint').hidden = false; $('#txBtnLabel').textContent = 'Transcribir este audio'; }
-}
-
-async function startTranscribe() {
-  const c = S.cur; if (!c || c.busy) return;
-  c.busy = true; $('#txBtn').hidden = true; $('#txHint').hidden = true; setStatus('spin', 'Preparando…');
-  try {
-    if (!c.pcm) throw new Error('decode');
-    const text = await transcribe(c.pcm, setStatus);
-    if (S.cur !== c) return;
-    if (!text) throw new Error('empty');
-    store.set(K.asr, true);
-    $('#txText').value = text; grow($('#txText')); setStatus(null); processText(text);
-    $('#acSub').textContent = 'Transcripción lista';
-  } catch (e) {
-    if (S.cur !== c) return;
-    const msg = e.message === 'decode' ? 'No pude leer este audio. Probá con otro archivo, o escribí el texto abajo.'
-      : e.message === 'empty' ? 'No se entendió nada en el audio. Podés escribir el texto abajo.'
-      : 'No pude cargar el motor de voz (necesita internet la primera vez). Podés escribir o pegar el texto abajo y Crika te sugiere respuestas igual.';
-    setStatus('err', msg);
-    $('#txBtn').hidden = false; $('#txBtnLabel').textContent = 'Reintentar';
-  } finally { c.busy = false; }
-}
-
-function openHistory(id) {
-  const e = S.audios.find(x => x.id === id); if (!e) return;
-  if (S.cur && S.cur.id === id) { go('mensajes'); return; }
-  const a = analyze(e.text) || { summary: '', replies: [] };
-  S.cur = { id: e.id, name: e.name, ts: e.ts, file: null, url: null, text: e.text, replies: a.replies, summary: a.summary, reply: e.reply || (a.replies[0] || ''), pick: -1, dur: 0, pcm: null, busy: false };
-  S.cur.pick = S.cur.replies.indexOf(S.cur.reply);
-  $('#audioEl').removeAttribute('src'); setPlayIcon(false);
-  $('#acTitle').textContent = e.name; $('#acSub').textContent = timeAgo(e.ts) + ' · sin el audio original';
-  $('#acBadge').textContent = e.status === 'respondido' ? 'Respondido' : e.status === 'descartado' ? 'Descartado' : 'Pendiente';
-  $('#acBadge').className = 'badge ' + (e.status === 'respondido' ? 'badge-ok' : e.status === 'descartado' ? 'badge-warn' : 'badge-primary');
-  $('#acPlayer').hidden = true; setStatus(null); $('#txBtn').hidden = true; $('#txHint').hidden = true;
-  $('#txText').value = e.text; renderReplies(); showAudioCard(true); go('mensajes'); grow($('#txText'));
-}
-
-function closeAudio() {
-  const a = $('#audioEl'); a.pause(); a.removeAttribute('src'); setPlayIcon(false);
-  if (S.cur && S.cur.url) URL.revokeObjectURL(S.cur.url);
-  S.cur = null; showAudioCard(false); showKeep(false);
-}
-
-/* =====================================================
-   BANDEJA y ARCHIVOS (datos reales de la sesión)
-   ===================================================== */
-const statusBadge = s => s === 'respondido' ? '<span class="badge badge-ok">Respondido</span>' : s === 'descartado' ? '<span class="badge badge-warn">Descartado</span>' : '<span class="badge badge-primary"><i class="dot"></i>Pendiente</span>';
-
-function renderInbox() {
-  const rows = [];
-  S.audios.slice().reverse().forEach(a => rows.push(`
-    <button class="row" data-action="open-audio" data-id="${esc(a.id)}">
-      <span class="tile tone-amber">${ic('mic')}</span>
-      <span class="row-main"><h4>${esc(a.text.length > 48 ? a.text.slice(0, 48) + '…' : a.text)}</h4><p>Audio • ${timeAgo(a.ts)}</p></span>
-      ${statusBadge(a.status)}
-    </button>`));
-  if (S.lastScan) rows.push(`
-    <button class="row" data-target="limpieza">
-      <span class="tile tone-violet">${ic('copy')}</span>
-      <span class="row-main"><h4>Análisis de fotos</h4><p>${thousands(S.lastScan.photos)} fotos • ${S.lastScan.groups} ${S.lastScan.groups === 1 ? 'grupo' : 'grupos'} • ${timeAgo(S.lastScan.ts)}</p></span>
-      <span class="badge badge-ok">Listo</span>
-    </button>`);
-  $('#inboxList').innerHTML = rows.join('');
-  $('#inboxList').hidden = rows.length === 0; $('#inboxEmpty').hidden = rows.length !== 0;
-}
-
-function renderBadges() {
-  const n = S.audios.filter(a => a.status === 'pendiente').length;
-  $$('[data-pending]').forEach(b => { b.textContent = n; b.hidden = n === 0; });
-  const t = $('.icon-btn[data-target="bandeja"]'); if (t) t.setAttribute('aria-label', n ? `Bandeja inteligente, ${n} pendientes` : 'Bandeja inteligente');
-}
 
 function renderFiles() {
   const q = S.query.trim().toLowerCase(), items = [];
@@ -1589,7 +1223,7 @@ function renderFiles() {
     const tags = ['Fotos']; if (dup) tags.push('Duplicadas'); if (p.prot) tags.push('Protegidas');
     items.push({ name: p.name, meta: `${fmtBytes(p.size)} • ${p.w}×${p.h} • ${fmtDate(p.ts)}`, tags, icon: 'image', tone: p.prot ? 'amber' : dup ? 'pink' : 'violet' });
   });
-  S.audios.slice().reverse().forEach(a => items.push({ name: a.name, meta: `Audio • ${timeAgo(a.ts)}`, tags: ['Audios'], icon: 'mic', tone: 'green' }));
+
   const list = items.filter(f => (S.filter === 'Todos' || f.tags.includes(S.filter)) && (!q || (f.name + ' ' + f.meta + ' ' + f.tags.join(' ')).toLowerCase().includes(q)));
   $('#fileList').innerHTML = list.slice(0, 200).map(f => `
     <div class="row">
@@ -1600,7 +1234,7 @@ function renderFiles() {
   if (!list.length) {
     const none = items.length === 0;
     $('#fileEmptyTitle').textContent = none ? 'Todavía no analizaste nada' : 'Sin resultados';
-    $('#fileEmptyText').textContent = none ? 'Cuando elijas fotos o audios, aparecen acá.' : 'Probá con otro filtro o palabra.';
+    $('#fileEmptyText').textContent = none ? 'Cuando elijas fotos, aparecen acá.' : 'Probá con otro filtro o palabra.';
   }
 }
 
@@ -1621,12 +1255,9 @@ function renderHome() {
   $('#heroRecover').textContent = sc ? fmtBytes(sc.bytes) : '0 MB';
   $('#analyzeLabel').textContent = sc ? 'Analizar más fotos' : 'Analizar mis fotos';
   $('#statProt').textContent = thousands(S.prot.length);
-  $('#statAudios').textContent = thousands(S.audios.length);
-  const pend = S.audios.filter(a => a.status === 'pendiente').length;
-  $('#statAudiosSub').textContent = S.audios.length ? (pend ? `${pend} ${pend === 1 ? 'sin responder' : 'sin responder'}` : 'todos respondidos') : 'Elegí o compartí un audio';
 }
 
-function renderAll() { renderHome(); renderDups(); renderBadges(); renderMemories(); if (NAT) { renderWa(); renderWaAudios(); updateProcBanner(); } if ($('#archivos').classList.contains('active')) renderFiles(); if ($('#bandeja').classList.contains('active')) renderInbox(); }
+function renderAll() { renderHome(); renderDups(); renderMemories(); if (NAT) { renderWa(); updateProcBanner(); } if ($('#archivos').classList.contains('active')) renderFiles(); }
 
 /* =====================================================
    INSTALAR
@@ -1705,7 +1336,6 @@ document.addEventListener('click', e => {
   switch (el.dataset.action) {
     case 'pick-photos':  $('#photoInput').click(); break;
     case 'pick-protect': $('#protectInput').click(); break;
-    case 'pick-audio': case 'new-audio': $('#audioInput').click(); break;
     case 'close': closeSheet(); break;
     case 'install': doInstall(); break;
     case 'dismiss-install': store.set(K.dismiss, true); updateInstallUI(); break;
@@ -1723,24 +1353,6 @@ document.addEventListener('click', e => {
     }
     case 'unprotect': S.prot = S.prot.filter(x => x.id !== el.dataset.id); saveProt(); S.photos.forEach(q => { q.prot = protMatch(q); }); if (S.photos.length) regroup(); closeSheet(); renderAll(); toast('Protección quitada'); break;
 
-    case 'play': {
-      const a = $('#audioEl'); if (!a.src) break;
-      if (a.paused) a.play().catch(() => toast('No pude reproducir este audio')); else a.pause();
-      break;
-    }
-    case 'transcribe': startTranscribe(); break;
-    case 'use-reply': { const c = S.cur; c.pick = +el.dataset.i; c.reply = c.replies[c.pick]; renderReplies(); persistCurrent(); break; }
-    case 'copy-reply': copyText($('#replyText').value).then(ok => toast(ok ? 'Respuesta copiada' : 'No pude copiar')); break;
-    case 'wa-sent': {
-      if (!$('#replyText').value.trim()) { e.preventDefault(); toast('Elegí o escribí una respuesta primero'); break; }
-      persistCurrent('respondido'); $('#acBadge').textContent = 'Respondido'; $('#acBadge').className = 'badge badge-ok';
-      if (NAT && S.cur && S.cur.path) showKeep(true); break;
-    }
-    case 'discard-audio':
-      persistCurrent('descartado');
-      if (NAT && S.cur && S.cur.path) { $('#acBadge').textContent = 'Descartado'; $('#acBadge').className = 'badge badge-warn'; showKeep(true); toast('Elegí si borrás el audio o lo mantenés'); break; }
-      closeAudio(); renderAll(); toast('Audio descartado'); break;
-    case 'open-audio': openHistory(el.dataset.id); break;
   }
 });
 
@@ -1752,15 +1364,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet()
 $('#fileSearch').addEventListener('input', e => { S.query = e.target.value; renderFiles(); });
 $('#photoInput').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) scanPhotos(f); });
 $('#protectInput').addEventListener('change', e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) protectFiles(f); });
-$('#audioInput').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openAudioFile(f); });
-$('#txText').addEventListener('input', (() => { let t; return e => { grow(e.target); clearTimeout(t); t = setTimeout(() => processText(e.target.value, false), 450); }; })());
-$('#replyText').addEventListener('input', e => { grow(e.target); if (S.cur) { S.cur.reply = e.target.value; S.cur.pick = S.cur.replies.indexOf(e.target.value); $$('.rep').forEach((b, i) => b.setAttribute('aria-checked', String(i === S.cur.pick))); persistCurrent(); } updateWa(); });
-const au = $('#audioEl');
-let paintTimer = null;
-au.addEventListener('play', () => { setPlayIcon(true); clearInterval(paintTimer); paintTimer = setInterval(paintAudio, 120); });
-au.addEventListener('pause', () => { clearInterval(paintTimer); setPlayIcon(false); paintAudio(); });
-au.addEventListener('ended', () => { clearInterval(paintTimer); setPlayIcon(false); au.currentTime = 0; paintAudio(); });
-au.addEventListener('timeupdate', paintAudio);
 
 /* =====================================================
    Compartir hacia Crika (Android, app instalada)
@@ -1777,9 +1380,8 @@ async function takeShared() {
       files.push(new File([blob], name, { type: blob.type, lastModified: Date.now() }));
       await cache.delete(k);
     }
-    const audio = files.find(f => /^audio\//.test(f.type) || /\.(opus|ogg|m4a|aac|mp3|wav|amr|3gp)$/i.test(f.name));
-    const images = files.filter(isImage);
-    if (audio) openAudioFile(audio); else if (images.length) scanPhotos(images);
+        const images = files.filter(isImage);
+    if (images.length) scanPhotos(images);
   } catch (_) {}
 }
 
@@ -1791,7 +1393,7 @@ const mkState = (scope, sumKey) => ({
   scope, access: false, scanning: false, scanned: false, ts: null,
   roots: [], files: [], byPath: new Map(), dup: [], dupBusy: false, disk: null, folders: [], allBytes: 0, allCount: 0,
   view: 'home', back: 'home', cat: null, folder: null, title: null, note: null, filter: 'all', sort: 'size', shown: 90,
-  sel: new Set(), sum: null, batch: null,
+  sel: new Set(), sum: null, batch: null, mass: null,
 });
 const PROT = new Set(store.get(K.waProt, []));
 const KEY_PH = 'crika-phscan-v1', KEY_SCOPE = 'crika-scope-v2';
@@ -1805,12 +1407,11 @@ const CATS = {
   stk: { l: 'Stickers', ic: 'heart', tone: 'amber', thumb: true },
   apk: { l: 'Instaladores de apps (APK)', ic: 'file', tone: 'pink' },
   zip: { l: 'Archivos comprimidos', ic: 'folder', tone: 'amber' },
-  ptt: { l: 'Notas de voz', ic: 'mic', tone: 'green' },
-  aud: { l: 'Audios', ic: 'mic', tone: 'green' },
   doc: { l: 'Documentos', ic: 'file', tone: 'blue' },
   otr: { l: 'Otros', ic: 'folder', tone: 'blue' },
 };
 const DAY = 864e5, MB = 1048576;
+const AUDIO_EXT = /\.(opus|ogg|oga|m4a|m4b|aac|mp3|wav|amr|awb|flac|wma|mid|midi|ra)$/i;
 const RECENT_DAYS = 30;
 const isRecent = f => Date.now() - f.m < RECENT_DAYS * DAY;
 const FILTERS_WA = [['all', 'Todos'], ['o30', 'Más de 30 días'], ['o90', 'Más de 90 días'], ['big', 'Más de 5 MB'], ['recv', 'Recibidos'], ['sent', 'Enviados']];
@@ -1857,10 +1458,11 @@ async function nativeScan(quiet, T = W) {
   try {
     const d = JSON.parse(await natCall('scan', T.scope === 'ph'));
     T.roots = d.roots;
-    T.files = d.files.map(a => ({ path: d.roots[a[0]] + '/' + a[1], rel: a[1], name: a[1].split('/').pop(), size: a[2], m: a[3], cat: a[4], sent: !!a[5] }));
+    T.files = d.files.map(a => ({ path: d.roots[a[0]] + '/' + a[1], rel: a[1], name: a[1].split('/').pop(), size: a[2], m: a[3], cat: a[4], sent: !!a[5] }))
+      .filter(f => f.cat !== 'ptt' && f.cat !== 'aud' && !AUDIO_EXT.test(f.name));
     T.byPath = new Map(T.files.map(f => [f.path, f]));
     T.disk = d.disk && d.disk.total ? d.disk : null; T.folders = d.folders || []; T.allBytes = d.totalBytes || 0; T.allCount = d.totalCount || 0;
-    T.ts = Date.now(); T.scanned = true; T.dup = []; T.view = 'home'; T.back = 'home'; T.cat = null; T.folder = null; T.title = null; T.note = null;
+    T.ts = Date.now(); T.scanned = true; T.mass = null; T.dup = []; T.view = 'home'; T.back = 'home'; T.cat = null; T.folder = null; T.title = null; T.note = null;
     saveSummary(T);
   } catch (e) {
     T.scanned = false; if (!quiet) toast(T.scope === 'ph' ? 'No pude revisar el teléfono' : 'No pude revisar las carpetas de WhatsApp');
@@ -1976,6 +1578,34 @@ function photoNote() {
   return `<div class="wa-note"><b>Antes de borrar fotos o videos</b><p>Crika no puede comprobar si ya están en Google Fotos: Google no se lo permite a otras apps. Abrí Google Fotos y mirá que tu copia de seguridad esté completa. Ahí también podés usar <b>Liberar espacio</b>, que sí verifica el respaldo antes de borrar.</p><button class="btn btn-soft btn-sm" data-action="wa-photos">Abrir Google Fotos</button></div>`;
 }
 
+/* ---- limpieza masiva ---- */
+function massEnsure() {
+  if (!W.mass) {
+    const keep = W.scope === 'ph' ? new Set(['img', 'vid']) : new Set();   // en el teléfono, fotos y videos arrancan sin marcar
+    W.mass = { cats: new Set(Object.keys(catStats()).filter(k => !keep.has(k))), age: 'o90', recent: false, keepSent: true, dups: true };
+  }
+  return W.mass;
+}
+function massInfo(m) {
+  const now = Date.now(), days = { all: 0, o30: 30, o90: 90, o180: 180, o365: 365 }[m.age] || 0;
+  const okFile = f => !isProt(f) && !AUDIO_EXT.test(f.name) && (m.age !== 'all' || m.recent || !isRecent(f)) && (!days || now - f.m > days * DAY);
+  const set = new Set(), byCat = {};
+  W.files.forEach(f => {
+    if (!okFile(f) || (m.keepSent && f.sent)) return;
+    const c = byCat[f.cat] || (byCat[f.cat] = { n: 0, bytes: 0 }); c.n++; c.bytes += f.size;
+    if (m.cats.has(f.cat)) set.add(f.path);
+  });
+  let dupExtra = 0;
+  if (m.dups) W.dup.forEach(g => g.slice(1).forEach(p => {
+    const f = W.byPath.get(p); if (!f || set.has(p) || !okFile(f) || (m.keepSent && f.sent)) return;
+    set.add(p); dupExtra++;
+  }));
+  /* nunca borrar todas las copias de un mismo archivo: siempre queda una */
+  W.dup.forEach(g => { const live = g.filter(p => W.byPath.has(p)); if (live.length > 1 && live.every(p => set.has(p))) { set.delete(live[0]); } });
+  const bytes = [...set].reduce((a, p) => a + ((W.byPath.get(p) || {}).size || 0), 0);
+  return { set, byCat, bytes, dupExtra };
+}
+
 function renderWa() {
   const card = $('#waCard'); if (!NAT) return;
   card.hidden = false;
@@ -1985,30 +1615,28 @@ function renderWa() {
   const head = (t, p) => scopeSeg() + `<div class="scan-top"><span class="tile tone-green">${ic('phone')}</span><div><h3>${t}</h3><p>${p}</p></div></div>`;
 
   if (!W.access) {
-    el.innerHTML = head(ph ? 'Tu teléfono' : 'Tu WhatsApp en este teléfono', ph ? 'Crika mide qué ocupa el espacio de tu teléfono (fotos, videos, descargas y WhatsApp) y encuentra repetidos y archivos pesados.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos, audios y documentos, y te muestra qué ocupa espacio.') +
+    el.innerHTML = head(ph ? 'Tu teléfono' : 'Tu WhatsApp en este teléfono', ph ? 'Crika mide qué ocupa el espacio de tu teléfono (fotos, videos, descargas y WhatsApp) y encuentra repetidos y archivos pesados.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y documentos, y te muestra qué ocupa espacio.') +
       `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}Dar permiso y analizar</button>
        <p class="hint">Solo lee y mide. Nada se borra sin tu confirmación y no se sube nada a internet.</p>`;
     return;
   }
   if (W.scanning) {
-    el.innerHTML = head(ph ? 'Revisando tu teléfono…' : 'Revisando WhatsApp…', ph ? 'Midiendo carpetas, fotos, videos y archivos.' : 'Buscando fotos, videos y audios guardados en tu teléfono.') +
+    el.innerHTML = head(ph ? 'Revisando tu teléfono…' : 'Revisando WhatsApp…', ph ? 'Midiendo carpetas, fotos, videos y archivos.' : 'Buscando fotos, videos y documentos guardados en tu teléfono.') +
       `<div class="progress"><div class="progress-bar"><i style="width:100%;opacity:.5"></i></div><small>Esto puede tardar hasta un minuto si tenés muchos archivos.</small></div>`;
     return;
   }
   if (!W.scanned) {
-    el.innerHTML = head(ph ? 'Tu teléfono' : 'Tu WhatsApp en este teléfono', ph ? 'Analizá para ver cuánto espacio te queda y qué lo ocupa.' : 'Analizá para ver cuánto espacio ocupan tus fotos, videos y audios.') +
+    el.innerHTML = head(ph ? 'Tu teléfono' : 'Tu WhatsApp en este teléfono', ph ? 'Analizá para ver cuánto espacio te queda y qué lo ocupa.' : 'Analizá para ver cuánto espacio ocupan tus fotos, videos y documentos.') +
       `<button class="btn btn-primary btn-block" data-action="wa-start">${ic('sparkles')}${ph ? 'Analizar mi teléfono' : 'Analizar WhatsApp'}</button>`;
     return;
   }
   if (!W.files.length) {
-    el.innerHTML = head('No encontré archivos', ph ? 'No encontré archivos grandes en el almacenamiento de este teléfono.' : 'No hay fotos, videos ni audios de WhatsApp guardados en este teléfono (o WhatsApp los guarda en otra ubicación).') +
+    el.innerHTML = head('No encontré archivos', ph ? 'No encontré archivos grandes en el almacenamiento de este teléfono.' : 'No hay fotos, videos ni documentos de WhatsApp guardados en este teléfono (o WhatsApp los guarda en otra ubicación).') +
       `<button class="btn btn-soft btn-block" data-action="wa-start">Volver a analizar</button>`;
     return;
   }
 
   if (W.view === 'home') {
-    const st = catStats(), di = dupInfo();
-    const cats = Object.keys(st).sort((a, b) => st[b].bytes - st[a].bytes);
     let top;
     if (ph) {
       const dk = W.disk, used = dk ? dk.total - dk.free : 0, pct = dk ? Math.round(used / dk.total * 100) : 0;
@@ -2018,13 +1646,29 @@ function renderWa() {
     } else {
       top = `<div class="wa-total"><small>WhatsApp ocupa en tu teléfono</small><b>${fmtBytes(totalBytes())}</b><small>${thousands(W.files.length)} archivos · ${timeAgo(W.ts)}</small></div>`;
     }
+    const mi = massInfo(massEnsure());
+    el.innerHTML = scopeSeg() + top + `
+      <div class="mode-pick">
+        <button class="mode primary" data-action="wa-mass"><span class="tile tone-pink">${ic('sparkles')}</span><span class="row-main"><h4>Limpieza masiva</h4><p>Rápida: elegís qué tipo de archivos y de cuánto tiempo, y se borra todo junto.${mi.set.size ? ' Hoy podrías liberar ' + fmtBytes(mi.bytes) + '.' : ''}</p></span><span class="wa-chev">${ic('chevron')}</span></button>
+        <button class="mode" data-action="wa-one"><span class="tile tone-blue">${ic('check')}</span><span class="row-main"><h4>Uno a uno</h4><p>Mirás tus archivos por tipo y marcás vos cuáles borrar.</p></span><span class="wa-chev">${ic('chevron')}</span></button>
+      </div>
+      <button class="btn btn-soft btn-block" style="margin-top:14px" data-action="wa-start">Volver a analizar</button>
+      <p class="hint">${ph ? 'Crika lista los archivos de más de 100 KB. Nada se borra sin que lo confirmes. WhatsApp y Android no dicen de qué chat viene cada archivo ni si el mensaje está sin leer.' : 'WhatsApp no guarda de qué chat viene cada archivo, así que Crika los agrupa por tipo, tamaño y fecha. Nada se borra sin que lo confirmes.'}</p>`;
+    return;
+  }
+
+  if (W.view === 'one') {
+    const st = catStats(), di = dupInfo();
+    const cats = Object.keys(st).sort((a, b) => st[b].bytes - st[a].bytes);
     const now = Date.now();
     const oldCam = ph ? W.files.filter(f => (f.cat === 'img' || f.cat === 'vid') && f.rel.startsWith('DCIM/') && now - f.m > 90 * DAY) : [];
     const oldBytes = oldCam.reduce((a, f) => a + f.size, 0);
     const extraRows = ph ? `
         ${oldCam.length ? `<button class="row" data-action="wa-old"><span class="tile tone-violet">${ic('image')}</span><span class="row-main"><h4>Fotos viejas de la cámara</h4><p>${thousands(oldCam.length)} de más de 3 meses</p></span><b class="wa-size">${fmtBytes(oldBytes)}</b><span class="wa-chev">${ic('chevron')}</span></button>` : ''}
         ${W.folders.length ? `<button class="row" data-action="wa-folders"><span class="tile tone-blue">${ic('folder')}</span><span class="row-main"><h4>Carpetas que más ocupan</h4><p>Mirá dónde se va el espacio</p></span><span class="wa-chev">${ic('chevron')}</span></button>` : ''}` : '';
-    el.innerHTML = scopeSeg() + top + `
+    el.innerHTML = `
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>Uno a uno</h3></div>
+      <p class="wa-sub">Entrá a un tipo de archivo, mirá y marcá lo que querés borrar.</p>
       <div class="wa-cats card flush" style="box-shadow:none;border-radius:16px">
         ${extraRows}
         ${cats.map(k => { const c = CATS[k] || CATS.otr; return `<button class="row" data-action="wa-cat" data-k="${k}">
@@ -2035,9 +1679,32 @@ function renderWa() {
           <span class="tile tone-pink">${ic('copy')}</span>
           <span class="row-main"><h4>Archivos idénticos</h4><p>${W.dupBusy ? 'Buscando repetidos…' : di.groups ? `${thousands(di.files)} repetidos en ${di.groups} ${di.groups === 1 ? 'grupo' : 'grupos'}` : 'No encontré repetidos'}</p></span>
           <b class="wa-size">${di.extra ? fmtBytes(di.extra) : ''}</b><span class="wa-chev">${ic('chevron')}</span></button>
+      </div>`;
+    return;
+  }
+
+  if (W.view === 'mass') {
+    const m = massEnsure(), mi = massInfo(m);
+    const st = catStats(), cats = Object.keys(st).sort((a, b) => st[b].bytes - st[a].bytes);
+    const ages = ph ? [['all', 'Todo'], ['o90', 'Más de 3 meses'], ['o180', 'Más de 6 meses'], ['o365', 'Más de 1 año']] : [['all', 'Todo'], ['o30', 'Más de 30 días'], ['o90', 'Más de 90 días']];
+    const media = [...m.cats].some(k => k === 'img' || k === 'vid');
+    const tog = (on, action, k, tone, icon, title, sub, size) => `<button class="row mass-row" role="checkbox" aria-checked="${on}" data-action="${action}" data-k="${k}"><span class="mchk">${ic('check')}</span><span class="tile tone-${tone}">${ic(icon)}</span><span class="row-main"><h4>${title}</h4><p>${sub}</p></span>${size ? `<b class="wa-size">${size}</b>` : ''}</button>`;
+    el.innerHTML = `
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>Limpieza masiva</h3></div>
+      <p class="wa-sub">Tocá para elegir qué incluir. Abajo ves cuánto vas a liberar, y antes de borrar te pido confirmación.</p>
+      <h4 class="mass-h">1. ¿Qué tipo de archivos?</h4>
+      <div class="card flush">${cats.map(k => { const c = CATS[k] || CATS.otr, x = mi.byCat[k] || { n: 0, bytes: 0 }; return tog(m.cats.has(k), 'mass-cat', k, c.tone, c.ic, c.l, `${thousands(x.n)} ${x.n === 1 ? 'archivo' : 'archivos'} para borrar`, fmtBytes(x.bytes)); }).join('')}</div>
+      <h4 class="mass-h">2. ¿De cuándo?</h4>
+      <div class="chips wa-chips" role="group" aria-label="Antigüedad">${ages.map(([k, l]) => `<button class="chip" data-action="mass-age" data-k="${k}" aria-pressed="${m.age === k}">${l}</button>`).join('')}</div>
+      <div class="card flush" style="margin-top:10px">
+        ${m.age === 'all' ? tog(m.recent, 'mass-flag', 'recent', 'amber', 'sparkles', `Incluir los últimos ${RECENT_DAYS} días`, 'Por seguridad lo reciente queda afuera, salvo que lo marques') : ''}
+        ${!ph ? tog(m.keepSent, 'mass-flag', 'sent', 'green', 'heart', 'No tocar lo que yo envié', 'Solo borra lo que recibiste') : ''}
+        ${tog(m.dups, 'mass-flag', 'dups', 'pink', 'copy', 'Borrar copias repetidas', W.dupBusy ? 'Buscando repetidos…' : `${thousands(dupInfo().files)} copias; siempre queda una original`)}
       </div>
-      <button class="btn btn-soft btn-block" style="margin-top:14px" data-action="wa-start">Volver a analizar</button>
-      <p class="hint">${ph ? 'Crika lista los archivos de más de 100 KB. Nada se borra sin que lo confirmes. WhatsApp y Android no dicen de qué chat viene cada archivo ni si el mensaje está sin leer.' : 'WhatsApp no guarda de qué chat viene cada archivo, así que Crika los agrupa por tipo, tamaño y fecha. Nada se borra sin que lo confirmes.'}</p>`;
+      ${media && ph ? photoNote() : ''}
+      <p class="wa-sub" style="margin-top:12px">Lo que protegiste con la estrella ★ nunca se incluye.</p>
+      <div class="mass-total"><small>Vas a liberar</small><b>${fmtBytes(mi.bytes)}</b><small>${thousands(mi.set.size)} ${mi.set.size === 1 ? 'archivo' : 'archivos'}${mi.dupExtra ? ` (incluye ${thousands(mi.dupExtra)} ${mi.dupExtra === 1 ? 'copia repetida' : 'copias repetidas'})` : ''}</small></div>
+      <button class="btn btn-danger btn-block" data-action="mass-go" ${mi.set.size ? '' : 'disabled'}>Revisar y borrar ${mi.set.size ? thousands(mi.set.size) : ''}</button>`;
     return;
   }
 
@@ -2138,12 +1805,14 @@ function confirmDelete() {
 }
 
 function waBack() {
-  W.view = (W.view === 'cat' && W.back === 'folders') ? 'folders' : 'home';
+  if (W.view === 'cat') W.view = W.back === 'folders' ? 'folders' : 'one';
+  else if (W.view === 'folders' || W.view === 'dups') W.view = 'one';
+  else W.view = 'home';
   W.back = 'home'; W.folder = null; W.title = null; W.note = null; W.sel = new Set();
   renderWa(); $('#main').scrollTop = 0;
 }
 function openCat(patch) {
-  Object.assign(W, { view: 'cat', filter: 'all', sort: 'size', shown: 90, sel: new Set(), folder: null, title: null, note: null, back: 'home' }, patch);
+  Object.assign(W, { view: 'cat', filter: 'all', sort: 'size', shown: 90, sel: new Set(), folder: null, title: null, note: null, back: 'one' }, patch);
   renderWa(); $('#main').scrollTop = 0;
 }
 function natAction(a, el) {
@@ -2158,6 +1827,12 @@ function natAction(a, el) {
     case 'wa-photos': if (!NAT.openPhotos()) toast('No encontré Google Fotos en este teléfono'); return true;
     case 'wa-dups': W.view = 'dups'; W.shown = 30; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-back': waBack(); return true;
+    case 'wa-mass': W.view = 'mass'; W.back = 'home'; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'wa-one': W.view = 'one'; W.back = 'home'; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
+    case 'mass-cat': { const m = massEnsure(), k = el.dataset.k; if (m.cats.has(k)) m.cats.delete(k); else m.cats.add(k); renderWa(); return true; }
+    case 'mass-age': massEnsure().age = el.dataset.k; renderWa(); return true;
+    case 'mass-flag': { const m = massEnsure(), k = el.dataset.k; if (k === 'recent') m.recent = !m.recent; else if (k === 'sent') m.keepSent = !m.keepSent; else m.dups = !m.dups; renderWa(); return true; }
+    case 'mass-go': { const mi = massInfo(massEnsure()); if (!mi.set.size) { toast('No hay nada para borrar con esas opciones'); return true; } W.sel = mi.set; confirmDelete(); return true; }
     case 'wa-filter': if (W.sel.size) toast('Cambiaste el filtro: se desmarcó todo para que no se borre nada oculto'); W.filter = el.dataset.k; W.shown = 90; W.sel = new Set(); renderWa(); return true;
     case 'wa-sort': W.sort = el.dataset.k; W.shown = 90; renderWa(); return true;
     case 'wa-more': W.shown += 90; renderWa(); return true;
@@ -2168,15 +1843,7 @@ function natAction(a, el) {
     case 'wa-star': toggleProtWa(el.dataset.p); return true;
     case 'wa-delete': confirmDelete(); return true;
     case 'wa-confirm': doDelete(); return true;
-    case 'wa-audio-batch': waBatch(); return true;
-    case 'wa-audio-open': waOpenAudio(el.dataset.p); return true;
-    case 'wa-audio-scan': nativeScan(false, WA); return true;
-    case 'wa-audio-win': audWin = el.dataset.k; store.set(KEY_AWIN, audWin); renderWaAudios(); return true;
-    case 'wa-audio-clear': markSeen(waAudioWindow().map(f => f.path)); renderAll(); toast('Listo: esos audios no vuelven a aparecer'); return true;
     case 'upd-go': updateGo(el.dataset.u); return true;
-    case 'audio-keep': audioKeep(); return true;
-    case 'audio-delete': openSheet(`<h3>¿Borrar este audio?</h3><p class="sub">Se borra de tu teléfono y <b>no se puede recuperar</b>. La transcripción y el resumen se conservan en Crika.</p><div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cancelar</button><button class="btn btn-primary" data-action="audio-delete-yes">Sí, borrar</button></div>`); return true;
-    case 'audio-delete-yes': audioDelete(); return true;
   }
   return false;
 }
@@ -2206,116 +1873,8 @@ function renderHomeNative() {
   $('#analyzeLabel').textContent = sum ? 'Analizar de nuevo' : ph ? 'Analizar mi teléfono' : 'Analizar WhatsApp';
   $('#analyzeBtn').dataset.action = 'wa-start';
   $('#homeScope').innerHTML = scopeSeg();
-  $('#heroHint').textContent = ph ? 'Crika mide todo tu almacenamiento: fotos, videos, descargas y WhatsApp. No se sube nada.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y audios. No se sube nada.';
+  $('#heroHint').textContent = ph ? 'Crika mide todo tu almacenamiento: fotos, videos, descargas y WhatsApp. No se sube nada.' : 'Crika revisa las carpetas donde WhatsApp guarda fotos, videos y documentos. No se sube nada.';
   $('#statProt').textContent = thousands(S.prot.length + PROT.size);
-  $('#statAudios').textContent = thousands(S.audios.length);
-  const nuevos = WA.scanned ? waAudioWindow().filter(f => !waDone(f)).length : 0;
-  const pend = S.audios.filter(a => a.status === 'pendiente').length;
-  $('#statAudiosSub').textContent = nuevos ? `${nuevos} ${nuevos === 1 ? 'audio nuevo' : 'audios nuevos'} sin escuchar` : pend ? `${pend} sin responder` : S.audios.length ? 'todos respondidos' : 'Buscá audios en Mensajes';
-}
-
-/* ---- audios de WhatsApp ---- */
-const waAudioList = () => WA.files.filter(f => (f.cat === 'ptt' || f.cat === 'aud') && !f.sent && f.size <= 4 * MB).sort((a, b) => b.m - a.m);
-const waEntry = f => S.audios.find(a => a.id === 'w:' + f.path);
-const waDone = f => { const e = waEntry(f); return !!(e && e.text); };
-/* WhatsApp no le dice a Crika qué audios leíste. Por eso Crika muestra solo lo reciente que todavía no resolviste acá. */
-const KEY_SEEN = 'crika-wa-seen-v1', KEY_AWIN = 'crika-wa-win-v1';
-const WA_SEEN = new Set(store.get(KEY_SEEN, []));
-let audWin = store.get(KEY_AWIN, '24');
-const AWINS = [['6', 'Últimas 6 h'], ['24', 'Últimas 24 h'], ['48', '2 días'], ['168', '7 días']];
-const RESOLVED = ['respondido', 'descartado', 'mantenido', 'borrado'];
-function markSeen(paths) { paths.forEach(p => WA_SEEN.add(p)); store.set(KEY_SEEN, [...WA_SEEN].slice(-800)); }
-const waHandled = f => { if (WA_SEEN.has(f.path)) return true; const e = waEntry(f); return !!(e && RESOLVED.includes(e.status)); };
-const waAudioWindow = () => { const since = Date.now() - (+audWin) * 3600e3; return waAudioList().filter(f => f.m >= since && !waHandled(f)); };
-const audioBlob = async p => { const r = await fetch(fileUrl(p)); if (!r.ok) throw new Error('read'); return r.blob(); };
-
-function renderWaAudios() {
-  const card = $('#waAudioCard'); if (!NAT) return;
-  card.hidden = false;
-  const el = $('#waAudioBody');
-  const head = `<div class="scan-top"><span class="tile tone-amber">${ic('mic')}</span><div><h3>Audios de WhatsApp</h3><p>Notas de voz recientes que todavía no resolviste. Crika las escucha y te resume cada una con respuestas listas.</p></div></div>`;
-  if (!NAT.hasAccess() || !WA.scanned) {
-    el.innerHTML = head + (WA.scanning ? `<div class="status"><span class="spinner"></span><span>Buscando audios…</span></div>` : `<button class="btn btn-primary btn-block" data-action="wa-audio-scan">${ic('mic')}Buscar mis audios</button>`);
-    return;
-  }
-  const list = waAudioWindow(), nuevos = list.filter(f => !waDone(f));
-  const b = WA.batch;
-  const winLabel = (AWINS.find(x => x[0] === audWin) || AWINS[1])[1].toLowerCase();
-  const chips = `<div class="chips wa-chips" role="group" aria-label="Período">${AWINS.map(([k, l]) => `<button class="chip" data-action="wa-audio-win" data-k="${k}" aria-pressed="${audWin === k}">${l}</button>`).join('')}</div>`;
-  if (!list.length) { el.innerHTML = head + chips + `<div class="status">No hay audios nuevos sin resolver (${winLabel}). Si esperabas alguno, probá con un período más largo.</div><button class="btn btn-soft btn-block" style="margin-top:10px" data-action="wa-audio-scan">Buscar de nuevo</button>`; return; }
-  const top = b
-    ? `<div class="progress"><div class="progress-bar"><i style="width:${b.total ? Math.round(b.done / b.total * 100) : 0}%"></i></div><small>${esc(b.msg)}</small></div>`
-    : nuevos.length
-      ? `<button class="btn btn-primary btn-block" data-action="wa-audio-batch">${ic('sparkles')}Resumir los ${Math.min(nuevos.length, 8)} más recientes</button><p class="hint">${thousands(nuevos.length)} ${nuevos.length === 1 ? 'audio sin escuchar' : 'audios sin escuchar'}. La primera vez se descarga el motor de voz (unos 75 MB).</p>`
-      : `<div class="status">Ya escuché todos tus audios recientes.</div>`;
-  const clear = !b ? `<button class="btn btn-ghost btn-block" style="margin:10px 0" data-action="wa-audio-clear">Ya los revisé: ocultar estos ${thousands(list.length)}</button>` : '';
-  el.innerHTML = head + chips + top + clear + `<div class="card flush wa-alist">${list.slice(0, 40).map(f => {
-    const e = waEntry(f), ok = e && e.text;
-    const badge = !ok ? '<span class="badge badge-primary"><i class="dot"></i>Nuevo</span>' : e.status === 'respondido' ? '<span class="badge badge-ok">Respondido</span>' : '<span class="badge badge-warn">Resumido</span>';
-    return `<button class="row" data-action="wa-audio-open" data-p="${P(f.path)}"><span class="tile tone-amber">${ic('mic')}</span>
-      <span class="row-main"><span class="wa-badge-row">${badge}<small>${fmtDT(f.m)} · ${fmtBytes(f.size)}</small></span><h4>${ok && e.summary ? esc(e.summary) : 'Nota de voz sin escuchar'}</h4>${ok ? `<p>“${esc(e.text.length > 60 ? e.text.slice(0, 60) + '…' : e.text)}”</p>` : ''}</span></button>`;
-  }).join('')}</div>`;
-}
-
-async function waBatch() {
-  if (WA.batch) return;
-  const todo = waAudioWindow().filter(f => !waDone(f)).slice(0, 8);
-  if (!todo.length) return;
-  WA.batch = { done: 0, total: todo.length, msg: 'Preparando…' }; renderWaAudios();
-  const setMsg = m => { WA.batch.msg = m; renderWaAudios(); };
-  let fails = 0, tried = 0;
-  for (const f of todo) {
-    tried++;
-    try {
-      setMsg(`Escuchando audio ${WA.batch.done + 1} de ${todo.length}…`);
-      const d = await decodeAudio(await audioBlob(f.path));
-      const text = await transcribe(d.pcm, (k, m) => { if (k === 'spin') setMsg(m); });
-      if (!text) throw new Error('empty');
-      store.set(K.asr, true);
-      const a = analyze(text);
-      let e = waEntry(f);
-      if (!e) { e = { id: 'w:' + f.path, name: 'Nota de voz · ' + fmtDT(f.m), ts: f.m, status: 'pendiente', path: f.path }; S.audios.push(e); if (S.audios.length > 200) S.audios.shift(); }
-      e.text = text; e.summary = a.summary; e.reply = a.replies[0];
-      store.set(K.audios, S.audios);
-    } catch (_) { fails++; if (fails >= 2 && fails === tried) break; }
-    WA.batch.done++; renderWaAudios(); renderHome(); renderBadges();
-  }
-  WA.batch = null; renderAll();
-  toast(fails ? (fails === todo.length ? 'No pude transcribir. Revisá tu internet (la primera vez hace falta).' : `Listo. ${fails} no se pudieron leer.`) : 'Audios resumidos');
-}
-
-const showKeep = show => { const k = $('#keepBox'); if (k) k.hidden = !show; };
-function audioDone(status) {
-  const c = S.cur; if (!c || !c.path) return null;
-  markSeen([c.path]);
-  const e = S.audios.find(x => x.id === c.id); if (e) { e.status = status; store.set(K.audios, S.audios); }
-  return c.path;
-}
-function audioKeep() {
-  if (!audioDone('mantenido')) return;
-  showKeep(false); closeAudio(); renderAll(); toast('Listo: el audio queda en tu teléfono');
-}
-async function audioDelete() {
-  const c = S.cur; if (!c || !c.path) return;
-  const path = c.path;
-  $('#sheetBody').innerHTML = `<h3>Borrando…</h3><div class="status" style="margin-top:14px"><span class="spinner"></span><span>Un momento.</span></div>`;
-  try {
-    const r = JSON.parse(await natCall('del', JSON.stringify([path])));
-    if (!r.deleted) { closeSheet(); toast('No pude borrar ese audio'); return; }
-    audioDone('borrado');
-    for (const T of [WA, PH]) { T.files = T.files.filter(f => f.path !== path); T.byPath.delete(path); T.dup = T.dup.map(g => g.filter(q => q !== path)).filter(g => g.length > 1); }
-    PROT.delete(path);
-    closeSheet(); showKeep(false); closeAudio(); renderAll(); toast(`Audio borrado. Liberaste ${fmtBytes(r.freed)}`);
-  } catch (_) { closeSheet(); toast('No pude borrar. Revisá el permiso de Crika.'); }
-}
-
-async function waOpenAudio(p) {
-  const f = WA.byPath.get(p); if (!f) return;
-  try {
-    const blob = await audioBlob(p), ent = waEntry(f);
-    const file = new File([blob], f.name, { type: blob.type || 'audio/ogg', lastModified: f.m });
-    openAudioFile(file, { id: 'w:' + p, name: 'Nota de voz · ' + fmtDT(f.m), ts: f.m, path: p, entry: ent });
-  } catch (_) { toast('No pude abrir ese audio'); }
 }
 
 /* ---- actualización de Crika (busca la versión nueva en GitHub) ---- */
@@ -2324,7 +1883,7 @@ async function checkUpdate() {
   try {
     const cur = NAT.versionCode();
     const r = JSON.parse(await natCall('checkUpdate'));
-    if (r.url && r.code > cur) updateSheet(r, cur);
+    if (r.url && r.code > cur) updateGo(r.url);   // se descarga sola al abrir Crika; solo falta tocar “Instalar”
   } catch (_) { /* sin internet o sin versión nueva: no molesta */ }
 }
 function updateSheet(r, cur) {
@@ -2333,11 +1892,11 @@ function updateSheet(r, cur) {
     <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Más tarde</button><button class="btn btn-primary" data-action="upd-go" data-u="${esc(r.url)}">Actualizar ahora</button></div>`);
 }
 async function updateGo(url) {
-  openSheet(`<h3>Descargando la versión nueva…</h3><div class="progress" style="margin-top:14px"><div class="progress-bar"><i id="updBar" style="width:2%"></i></div><small id="updMsg">Un momento, no cierres Crika.</small></div>`);
+  openSheet(`<h3>Actualizando Crika…</h3><div class="progress" style="margin-top:14px"><div class="progress-bar"><i id="updBar" style="width:2%"></i></div><small id="updMsg">Un momento, no cierres Crika.</small></div>`);
   window.__updProgress = pct => { const b = $('#updBar'); if (b) b.style.width = Math.max(2, pct) + '%'; const m = $('#updMsg'); if (m) m.textContent = pct + '%'; };
   try {
     await natCall('installUpdate', url);
-    $('#sheetBody').innerHTML = `<h3>Casi listo</h3><p class="sub">Android te va a pedir confirmar la instalación: tocá <b>Actualizar</b> o <b>Instalar</b>. Crika se reinicia sola.</p><div class="sheet-actions"><button class="btn btn-primary" data-action="close">Entendido</button></div>`;
+    $('#sheetBody').innerHTML = `<h3>Versión nueva lista</h3><p class="sub">Android te muestra una ventana: tocá <b>Actualizar</b> (o <b>Instalar</b>). Se instala encima, sin desinstalar nada, y Crika se reinicia sola.</p><div class="sheet-actions"><button class="btn btn-primary" data-action="close">Entendido</button></div>`;
   } catch (e) {
     if (String(e.message) === 'perm') {
       $('#sheetBody').innerHTML = `<h3>Falta un permiso</h3><p class="sub">Se abrió una pantalla de Android: activá <b>“Permitir desde esta fuente”</b> para Crika, volvé y tocá Actualizar otra vez.</p><div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Cerrar</button><button class="btn btn-primary" data-action="upd-go" data-u="${esc(url)}">Actualizar</button></div>`;
@@ -2352,7 +1911,7 @@ if (NAT) {
     try {
       const r = await fetch('/__c?n=' + encodeURIComponent(n)); const b = await r.blob();
       const f = new File([b], n, { type: b.type, lastModified: Date.now() });
-      if (isImage(f)) scanPhotos([f]); else openAudioFile(f);
+      if (isImage(f)) scanPhotos([f]); else toast('Crika solo recibe fotos');
     } catch (_) { toast('No pude abrir lo que compartiste'); }
   };
   window.__back = () => {
@@ -2369,11 +1928,7 @@ if (NAT) {
     <div><h4>${ic('phone')}Limpieza de tu teléfono</h4><ol class="steps">
       <li><span>Tocá <b>Analizar mi teléfono</b> y dale el permiso.</span></li>
       <li><span>Crika mide el espacio, encuentra repetidos, archivos pesados y fotos viejas de la cámara.</span></li>
-      <li><span>Marcás lo que sobra y confirmás: se borra del teléfono.</span></li></ol></div>
-    <div><h4>${ic('mic')}Audios de WhatsApp</h4><ol class="steps">
-      <li><span>En <b>Mensajes</b>, Crika muestra las notas de voz recientes que todavía no resolviste (elegís el período).</span></li>
-      <li><span>Las escucha, las transcribe y te las resume.</span></li>
-      <li><span>Elegís una respuesta sugerida, la enviás por WhatsApp y decidís si borrás el audio o lo mantenés.</span></li></ol></div>`;
+      <li><span>Elegís <b>Limpieza masiva</b> (todo junto) o <b>Uno a uno</b> (marcás vos) y confirmás: se borra del teléfono.</span></li></ol></div>`;
   $('#howNote').textContent = (NAT.versionCode ? 'Crika versión ' + NAT.versionCode() + '. ' : '') + 'Crika no lee tus chats: trabaja con los archivos que se guardan en tu teléfono. No puede saber de qué grupo viene cada archivo, qué mensajes están sin leer, ni si una foto ya está en Google Fotos (eso lo verifica Google Fotos con “Liberar espacio”).';
 }
 
@@ -2381,7 +1936,6 @@ if (NAT) {
 /* =====================================================
    Arranque (todo en cero hasta que analices algo)
    ===================================================== */
-drawWave(null);
 renderAll();
 renderFiles();
 if (NAT) setTimeout(checkUpdate, 1500);

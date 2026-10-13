@@ -94,13 +94,23 @@ final class WaFiles {
         return false;
     }
 
+    /** Crika no toca audios: ni los lista, ni los mide, ni los borra. */
+    static boolean isAudioName(String name) {
+        String n = name.toLowerCase(Locale.ROOT);
+        return n.endsWith(".opus") || n.endsWith(".ogg") || n.endsWith(".oga") || n.endsWith(".m4a") || n.endsWith(".m4b")
+                || n.endsWith(".aac") || n.endsWith(".mp3") || n.endsWith(".wav") || n.endsWith(".amr") || n.endsWith(".awb")
+                || n.endsWith(".flac") || n.endsWith(".wma") || n.endsWith(".mid") || n.endsWith(".midi");
+    }
+
+    private static boolean isAudioDir(String name) {
+        return name.equals("WhatsApp Voice Notes") || name.equals("WhatsApp Audio");
+    }
+
     private static String category(String top) {
         switch (top) {
             case "WhatsApp Images": return "img";
             case "WhatsApp Video": return "vid";
             case "WhatsApp Video Notes": return "vid";
-            case "WhatsApp Voice Notes": return "ptt";
-            case "WhatsApp Audio": return "aud";
             case "WhatsApp Documents": return "doc";
             case "WhatsApp Animated Gifs": return "gif";
             case "WhatsApp Stickers": return "stk";
@@ -116,7 +126,6 @@ final class WaFiles {
         switch (e) {
             case "jpg": case "jpeg": case "png": case "webp": case "gif": case "bmp": case "heic": case "heif": case "dng": return "img";
             case "mp4": case "3gp": case "mkv": case "webm": case "mov": case "avi": case "m4v": return "vid";
-            case "mp3": case "m4a": case "aac": case "ogg": case "opus": case "wav": case "amr": case "flac": return "aud";
             case "pdf": case "doc": case "docx": case "xls": case "xlsx": case "ppt": case "pptx": case "txt": case "csv": case "epub": return "doc";
             case "apk": case "xapk": case "apks": return "apk";
             case "zip": case "rar": case "7z": case "tar": case "gz": return "zip";
@@ -151,6 +160,7 @@ final class WaFiles {
                 for (File k : kids) {
                     String name = k.getName();
                     if (k.isDirectory()) {
+                        if (isAudioDir(name)) continue;
                         if (phone) {
                             if (name.startsWith(".")) continue;
                             String kp = k.getAbsolutePath();
@@ -160,7 +170,7 @@ final class WaFiles {
                         }
                         stack.push(k);
                     } else {
-                        if (name.equals(".nomedia")) continue;
+                        if (name.equals(".nomedia") || isAudioName(name)) continue;
                         long len = k.length();
                         if (len <= 0) continue;
                         String full = k.getAbsolutePath();
@@ -426,12 +436,7 @@ final class WaFiles {
     /** Tipo de contenido según la extensión, para servir el archivo a la app. */
     static String mimeOf(String name) {
         String n = name.toLowerCase(Locale.ROOT);
-        if (n.endsWith(".opus") || n.endsWith(".ogg")) return "audio/ogg";
-        if (n.endsWith(".m4a") || n.endsWith(".aac")) return "audio/mp4";
-        if (n.endsWith(".mp3")) return "audio/mpeg";
-        if (n.endsWith(".wav")) return "audio/wav";
-        if (n.endsWith(".amr")) return "audio/amr";
-        if (n.endsWith(".3gp")) return "audio/3gpp";
+        if (n.endsWith(".3gp")) return "video/3gpp";
         if (n.endsWith(".jpg") || n.endsWith(".jpeg")) return "image/jpeg";
         if (n.endsWith(".png")) return "image/png";
         if (n.endsWith(".webp")) return "image/webp";
