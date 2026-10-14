@@ -1402,6 +1402,7 @@ let W = store.get(KEY_SCOPE, 'ph') === 'wa' ? WA : PH;
 const CATS = {
   vid: { l: 'Videos', ic: 'video', tone: 'pink', thumb: true },
   img: { l: 'Fotos', ic: 'image', tone: 'violet', thumb: true },
+  shot: { l: 'Capturas de pantalla', ic: 'phone', tone: 'blue', thumb: true },
   sts: { l: 'Estados', ic: 'phone', tone: 'violet', thumb: true },
   gif: { l: 'GIFs', ic: 'sparkles', tone: 'amber', thumb: true },
   stk: { l: 'Stickers', ic: 'heart', tone: 'amber', thumb: true },
@@ -1676,10 +1677,13 @@ function renderWa() {
     const extraRows = ph ? `
         ${oldCam.length ? `<button class="row" data-action="wa-old"><span class="tile tone-violet">${ic('image')}</span><span class="row-main"><h4>Fotos viejas de la cámara</h4><p>${thousands(oldCam.length)} de más de 3 meses</p></span><b class="wa-size">${fmtBytes(oldBytes)}</b><span class="wa-chev">${ic('chevron')}</span></button>` : ''}
         ${W.folders.length ? `<button class="row" data-action="wa-folders"><span class="tile tone-blue">${ic('folder')}</span><span class="row-main"><h4>Carpetas que más ocupan</h4><p>Mirá dónde se va el espacio</p></span><span class="wa-chev">${ic('chevron')}</span></button>` : ''}` : '';
+    const vids = W.files.filter(f => f.cat === 'vid').sort((a, b) => b.size - a.size).slice(0, 20);
+    const vidRow = vids.length ? `<button class="row" data-action="wa-bigvid"><span class="tile tone-pink">${ic('video')}</span><span class="row-main"><h4>Los 20 videos más pesados</h4><p>Lo que más espacio ocupa, primero</p></span><b class="wa-size">${fmtBytes(vids.reduce((a, f) => a + f.size, 0))}</b><span class="wa-chev">${ic('chevron')}</span></button>` : '';
     el.innerHTML = `
       <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>Uno a uno</h3></div>
       <p class="wa-sub">Entrá a un tipo de archivo, mirá y marcá lo que querés borrar.</p>
       <div class="wa-cats card flush" style="box-shadow:none;border-radius:16px">
+        ${vidRow}
         ${extraRows}
         ${cats.map(k => { const c = CATS[k] || CATS.otr; return `<button class="row" data-action="wa-cat" data-k="${k}">
           <span class="tile tone-${c.tone}">${ic(c.ic)}</span>
@@ -1742,7 +1746,7 @@ function renderWa() {
     const bytes = all.reduce((a, f) => a + f.size, 0);
     const photoish = ph && (W.note === 'photos' || W.cat === 'img' || W.cat === 'vid');
     el.innerHTML = `
-      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>${esc(c.l)}</h3></div>
+      <div class="wa-top"><button class="btn btn-ghost btn-sm" data-action="wa-back">${ic('chevron', 'flip')}Volver</button><h3>${esc(W.title || c.l)}</h3></div>
       <p class="wa-sub">${thousands(all.length)} ${all.length === 1 ? 'archivo' : 'archivos'} · ${fmtBytes(bytes)}</p>
       ${photoish ? photoNote() : ''}
       <div class="chips wa-chips" role="group" aria-label="Filtros">${filtersNow().map(([k, l]) => `<button class="chip" data-action="wa-filter" data-k="${k}" aria-pressed="${W.filter === k}">${l}</button>`).join('')}</div>
@@ -1842,6 +1846,7 @@ function natAction(a, el) {
     case 'wa-folders': W.view = 'folders'; W.back = 'home'; renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-folder': openCat({ cat: '*', folder: el.dataset.k, back: 'folders' }); return true;
     case 'wa-old': openCat({ cat: '*', folder: 'DCIM', filter: 'o90', sort: 'old', title: 'Fotos viejas de la cámara', note: 'photos' }); return true;
+    case 'wa-bigvid': openCat({ cat: 'vid', shown: 20, title: 'Los 20 videos más pesados', note: 'photos' }); return true;
     case 'wa-photos': if (!NAT.openPhotos()) toast('No encontré Google Fotos en este teléfono'); return true;
     case 'wa-dups': W.view = 'dups'; W.shown = 30; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-back': waBack(); return true;

@@ -102,6 +102,11 @@ final class WaFiles {
                 || n.endsWith(".flac") || n.endsWith(".wma") || n.endsWith(".mid") || n.endsWith(".midi");
     }
 
+    /** Capturas de pantalla: carpetas "Screenshots" o archivos "Screenshot_...". */
+    private static boolean isScreenshot(String rel) {
+        return rel.toLowerCase(Locale.ROOT).contains("screenshot");
+    }
+
     private static boolean isAudioDir(String name) {
         return name.equals("WhatsApp Voice Notes") || name.equals("WhatsApp Audio");
     }
@@ -197,6 +202,7 @@ final class WaFiles {
                             agg[1]++;
                             if (len < PHONE_MIN) continue;
                             r.cat = catByExt(name);
+                            if (r.cat.equals("img") && isScreenshot(rel)) r.cat = "shot";
                             r.sent = false;
                         } else {
                             r.cat = category(parts[0]);
