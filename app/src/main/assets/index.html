@@ -1576,10 +1576,28 @@ function massInfo(m) {
   return { set, cand, byCat, bytes, dupExtra };
 }
 
+function massSections(list, m) {
+  const groups = new Map();
+  list.forEach(f => { const g = groups.get(f.cat) || groups.set(f.cat, []).get(f.cat); g.push(f); });
+  return [...groups].map(([k, fs]) => {
+    const c = CATS[k] || CATS.otr, bytes = fs.reduce((a, f) => a + f.size, 0);
+    return `<h4 class="mass-h">${c.l} · ${thousands(fs.length)} · ${fmtBytes(bytes)}</h4>` + (c.thumb
+      ? `<div class="photos wa-photos">${fs.map(f => massItem(f, true, m)).join('')}</div>`
+      : `<div class="card flush wa-list">${fs.map(f => massItem(f, false, m)).join('')}</div>`);
+  }).join('');
+}
+function massView(p) {
+  const f = W.byPath.get(p); if (!f) return;
+  const isImg = f.cat !== 'vid';
+  openSheet(`<h3>${esc(f.name)}</h3>
+    <p class="sub">${fmtBytes(f.size)} · ${fmtDate(f.m)}${dirOf(f)}</p>
+    <img alt="" style="width:100%;max-height:60vh;object-fit:contain;border-radius:14px;background:var(--surface-2)" src="${isImg ? fileUrl(p) : thumbUrl(p, 800)}">
+    <div class="sheet-actions"><button class="btn btn-primary" data-action="close">Cerrar</button></div>`);
+}
 function massItem(f, thumb, m) {
   const on = !m.excl.has(f.path);
   const chk = `<input type="checkbox" data-massel="${P(f.path)}" ${on ? 'checked' : ''} aria-label="Borrar ${esc(f.name)}">`;
-  if (thumb) return `<div class="ph ${on ? 'sel' : ''}" data-wap="${P(f.path)}"><div class="ph-img"><img loading="lazy" decoding="async" alt="" src="${thumbUrl(f.path)}" onerror="this.style.visibility='hidden'"><label class="ph-chk">${chk}</label></div><div class="ph-meta"><b>${fmtBytes(f.size)}</b>${fmtDate(f.m)}</div></div>`;
+  if (thumb) return `<div class="ph ${on ? 'sel' : ''}" data-wap="${P(f.path)}"><div class="ph-img"><img data-action="mass-view" data-p="${P(f.path)}" loading="lazy" decoding="async" alt="" src="${thumbUrl(f.path)}" onerror="this.style.visibility='hidden'"><label class="ph-chk">${chk}</label></div><div class="ph-meta"><b>${fmtBytes(f.size)}</b>${fmtDate(f.m)}</div></div>`;
   const cat = CATS[f.cat] || CATS.otr;
   return `<label class="row wa-row ${on ? 'sel' : ''}" data-wap="${P(f.path)}">${chk}<span class="tile tone-${cat.tone}">${ic(cat.ic)}</span><span class="row-main"><h4>${esc(f.name)}</h4><p>${fmtBytes(f.size)} · ${fmtDate(f.m)}${f.sent ? ' · Enviado' : ''}${W.scope === 'ph' ? dirOf(f) : ''}</p></span></label>`;
 }
@@ -1685,11 +1703,9 @@ function renderWa() {
       ${media && ph ? photoNote() : ''}
       <p class="wa-sub" style="margin-top:12px">Lo que protegiste con la estrella ★ nunca se incluye.</p>
       <h4 class="mass-h">3. Esto es lo que se va a borrar</h4>
-      <p class="wa-sub">${mi.set.size ? 'Ya está todo marcado. Si hay algo que NO querés borrar, tocá su cuadradito para desmarcarlo.' : 'Con estas opciones no queda nada para borrar. Marcá algún tipo arriba.'}</p>
+      <p class="wa-sub">${mi.set.size ? 'Ya está todo marcado. Tocá una foto para verla grande. Si no querés borrarla, tocá su cuadradito para desmarcarla.' : 'Con estas opciones no queda nada para borrar. Marcá algún tipo arriba.'}</p>
       ${mi.cand.size ? `<div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="mass-reinc">Marcar todos</button> <button class="btn btn-soft btn-sm" data-action="mass-none">Desmarcar todos</button></div>` : ''}
-      ${prev.length ? (prev.some(f => (CATS[f.cat] || CATS.otr).thumb) && prev.every(f => (CATS[f.cat] || CATS.otr).thumb)
-        ? `<div class="photos wa-photos">${prev.slice(0, W.shown).map(f => massItem(f, true, m)).join('')}</div>`
-        : `<div class="card flush wa-list">${prev.slice(0, W.shown).map(f => massItem(f, false, m)).join('')}</div>`) : ''}
+      ${massSections(prev.slice(0, W.shown), m)}
       ${prev.length > W.shown ? `<button class="btn btn-ghost btn-block" style="margin-top:12px" data-action="wa-more">Ver más (${thousands(prev.length - W.shown)})</button>` : ''}
       <div class="wa-bar on"><div class="wa-bar-info"><b>${fmtBytes(mi.bytes)}</b><small>${thousands(mi.set.size)} ${mi.set.size === 1 ? 'archivo' : 'archivos'} para borrar${mi.dupExtra ? ` · ${thousands(mi.dupExtra)} ${mi.dupExtra === 1 ? 'copia repetida' : 'copias repetidas'}` : ''}</small></div>
         <button class="btn btn-danger btn-sm" data-action="mass-go" ${mi.set.size ? '' : 'disabled'}>Borrar ${mi.set.size ? thousands(mi.set.size) : ''}</button></div>`;
@@ -1821,6 +1837,7 @@ function natAction(a, el) {
     case 'mass-cat': { const m = massEnsure(), k = el.dataset.k; if (m.cats.has(k)) m.cats.delete(k); else m.cats.add(k); renderWa(); return true; }
     case 'mass-age': massEnsure().age = el.dataset.k; renderWa(); return true;
     case 'mass-flag': { const m = massEnsure(), k = el.dataset.k; if (k === 'recent') m.recent = !m.recent; else if (k === 'sent') m.keepSent = !m.keepSent; else m.dups = !m.dups; renderWa(); return true; }
+    case 'mass-view': massView(el.dataset.p); return true;
     case 'mass-none': { const m = massEnsure(); massInfo(m).cand.forEach(p => m.excl.add(p)); renderWa(); return true; }
     case 'mass-reinc': massEnsure().excl.clear(); renderWa(); return true;
     case 'mass-go': { const mi = massInfo(massEnsure()); if (!mi.set.size) { toast('No hay nada para borrar con esas opciones'); return true; } W.sel = mi.set; confirmDelete(); return true; }
