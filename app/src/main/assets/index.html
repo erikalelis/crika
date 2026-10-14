@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crika – Inteligencia para tu celular</title>
-<meta name="description" content="Crika ordena y limpia tu celular: fotos duplicadas, archivos repetidos y pesados, recuerdos protegidos.">
+<meta name="description" content="Crika ordena y limpia tu celular: fotos duplicadas, archivos repetidos y pesados.">
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -662,7 +662,6 @@ button:disabled { opacity: .5; }
   <nav class="side-menu">
     <button class="side-item" data-target="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Inicio</button>
     <button class="side-item" data-target="limpieza"><svg class="ic"><use href="#i-sparkles"/></svg>Limpieza</button>
-    <button class="side-item" data-target="recuerdos"><svg class="ic"><use href="#i-heart"/></svg>Recuerdos</button>
     <button class="side-item" data-target="archivos"><svg class="ic"><use href="#i-folder"/></svg>Archivos</button>
   </nav>
   <div class="side-foot">
@@ -746,7 +745,7 @@ button:disabled { opacity: .5; }
   <section id="limpieza" class="view" aria-label="Limpieza inteligente">
     <div class="page-head">
       <h2>Limpieza inteligente</h2>
-      <p>Libera espacio. Conserva tus recuerdos.</p>
+      <p>Libera espacio de tu celular.</p>
     </div>
 
     <div class="card wa-card" id="waCard" hidden><div id="waBody"></div></div>
@@ -771,27 +770,6 @@ button:disabled { opacity: .5; }
     </div>
 
     <div id="dupResults"></div>
-  </section>
-
-  <!-- ================= RECUERDOS ================= -->
-  <section id="recuerdos" class="view" aria-label="Recuerdos">
-    <div class="page-head">
-      <h2>Recuerdos</h2>
-      <p>Lo que protejas acá nunca se marca para borrar en la limpieza.</p>
-    </div>
-
-    <div class="section-title" style="margin-top:0">
-      <span>Protegido por Crika</span>
-      <button class="btn btn-soft btn-sm" data-action="pick-protect"><svg class="ic"><use href="#i-plus"/></svg>Añadir</button>
-    </div>
-
-    <div class="mem-grid" id="memGrid"></div>
-    <div class="empty" id="memEmpty" hidden>
-      <div class="art"><svg class="ic"><use href="#i-shield"/></svg></div>
-      <h3>Todavía no protegiste nada</h3>
-      <p>Tocá <b>Añadir</b> y elegí tus fotos más importantes. También podés tocar la estrella ★ en cualquier foto durante la limpieza.</p>
-    </div>
-    <p class="hint" id="memNote" hidden>Se guarda una miniatura chica y una huella de cada foto solo en este navegador. Las fotos originales no se copian.</p>
   </section>
 
 
@@ -828,7 +806,6 @@ button:disabled { opacity: .5; }
 <nav class="nav" aria-label="Principal">
   <button class="nav-item" data-target="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg><span>Inicio</span></button>
   <button class="nav-item" data-target="limpieza"><svg class="ic"><use href="#i-sparkles"/></svg><span>Limpieza</span></button>
-  <button class="nav-item" data-target="recuerdos"><svg class="ic"><use href="#i-heart"/></svg><span>Recuerdos</span></button>
   <button class="nav-item" data-target="archivos"><svg class="ic"><use href="#i-folder"/></svg><span>Archivos</span></button>
 </nav>
 </div>
@@ -914,7 +891,6 @@ function go(id) {
     if (b.dataset.target === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
   if (id === 'archivos') renderFiles();
-  if (id === 'recuerdos') renderMemories();
   $('#main').scrollTop = 0;
 }
 
@@ -1176,7 +1152,7 @@ function howDeleteSheet() {
    RECUERDOS PROTEGIDOS
    ===================================================== */
 function renderMemories() {
-  const g = $('#memGrid');
+  const g = $('#memGrid'); if (!g) return;
   g.innerHTML = S.prot.slice().reverse().map((q, k) => `
     <button class="mem" data-action="mem" data-id="${esc(q.id)}" aria-label="${esc(q.name)}, protegida">
       <div class="mem-cover img g${(k % 4) + 1}"><img src="${q.thumb}" alt="" loading="lazy"></div>
