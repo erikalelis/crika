@@ -1751,8 +1751,8 @@ function renderWa() {
       ${photoish ? photoNote() : ''}
       <div class="chips wa-chips" role="group" aria-label="Filtros">${filtersNow().map(([k, l]) => `<button class="chip" data-action="wa-filter" data-k="${k}" aria-pressed="${W.filter === k}">${l}</button>`).join('')}</div>
       <div class="seg tight" role="group" aria-label="Orden">${SORTS.map(([k, l]) => `<button data-action="wa-sort" data-k="${k}" aria-selected="${W.sort === k}">${l}</button>`).join('')}</div>
-      <div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-selall">Marcar los ${thousands(all.filter(f => !isProt(f) && !isRecent(f)).length)} archivos de esta lista</button></div>
-      ${all.some(isRecent) ? `<p class="wa-sub">Los ${thousands(all.filter(isRecent).length)} archivos de los últimos ${RECENT_DAYS} días no se marcan solos: revisalos y marcalos vos si querés.</p>` : ''}
+      <div class="wa-tools"><button class="btn btn-soft btn-sm" data-action="wa-selall">Marcar los ${thousands(all.filter(f => !isProt(f) && (W.allRecent || !isRecent(f))).length)} archivos de esta lista</button></div>
+      ${!W.allRecent && all.some(isRecent) ? `<p class="wa-sub">Los ${thousands(all.filter(isRecent).length)} archivos de los últimos ${RECENT_DAYS} días no se marcan solos: revisalos y marcalos vos si querés.</p>` : ''}
       ${all.length ? (c.thumb ? `<div class="photos wa-photos">${list.map(f => itemHTML(f, true)).join('')}</div>` : `<div class="card flush wa-list">${list.map(f => itemHTML(f, false)).join('')}</div>`) : '<div class="empty" style="padding:26px 10px"><p>No hay archivos con este filtro.</p></div>'}
       ${all.length > list.length ? `<button class="btn btn-ghost btn-block" style="margin-top:12px" data-action="wa-more">Ver más (${thousands(all.length - list.length)})</button>` : ''}
       ${barHTML()}`;
@@ -1834,7 +1834,7 @@ function waBack() {
   renderWa(); $('#main').scrollTop = 0;
 }
 function openCat(patch) {
-  Object.assign(W, { view: 'cat', filter: 'all', sort: 'size', shown: 90, sel: new Set(), folder: null, title: null, note: null, back: 'one' }, patch);
+  Object.assign(W, { view: 'cat', filter: 'all', sort: 'size', shown: 90, sel: new Set(), folder: null, title: null, note: null, allRecent: false, back: 'one' }, patch);
   renderWa(); $('#main').scrollTop = 0;
 }
 function natAction(a, el) {
@@ -1846,7 +1846,7 @@ function natAction(a, el) {
     case 'wa-folders': W.view = 'folders'; W.back = 'home'; renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-folder': openCat({ cat: '*', folder: el.dataset.k, back: 'folders' }); return true;
     case 'wa-old': openCat({ cat: '*', folder: 'DCIM', filter: 'o90', sort: 'old', title: 'Fotos viejas de la cámara', note: 'photos' }); return true;
-    case 'wa-bigvid': openCat({ cat: 'vid', shown: 20, title: 'Los 20 videos más pesados', note: 'photos' }); return true;
+    case 'wa-bigvid': openCat({ cat: 'vid', shown: 20, allRecent: true, title: 'Los 20 videos más pesados', note: 'photos' }); return true;
     case 'wa-photos': if (!NAT.openPhotos()) toast('No encontré Google Fotos en este teléfono'); return true;
     case 'wa-dups': W.view = 'dups'; W.shown = 30; W.sel = new Set(); renderWa(); $('#main').scrollTop = 0; return true;
     case 'wa-back': waBack(); return true;
@@ -1861,7 +1861,7 @@ function natAction(a, el) {
     case 'wa-filter': if (W.sel.size) toast('Cambiaste el filtro: se desmarcó todo para que no se borre nada oculto'); W.filter = el.dataset.k; W.shown = 90; W.sel = new Set(); renderWa(); return true;
     case 'wa-sort': W.sort = el.dataset.k; W.shown = 90; renderWa(); return true;
     case 'wa-more': W.shown += 90; renderWa(); return true;
-    case 'wa-selall': { let skipped = 0; W.sel = new Set(); filtered().forEach(f => { if (isProt(f)) return; if (isRecent(f)) { skipped++; return; } W.sel.add(f.path); }); renderWa(); if (skipped) toast(`No se marcaron ${skipped} de los últimos ${RECENT_DAYS} días`); return true; }
+    case 'wa-selall': { let skipped = 0; W.sel = new Set(); filtered().forEach(f => { if (isProt(f)) return; if (isRecent(f) && !W.allRecent) { skipped++; return; } W.sel.add(f.path); }); renderWa(); if (skipped) toast(`No se marcaron ${skipped} de los últimos ${RECENT_DAYS} días`); return true; }
     case 'wa-unrecent': { [...W.sel].forEach(pp => { const f = W.byPath.get(pp); if (f && isRecent(f)) W.sel.delete(pp); }); closeSheet(); renderWa(); if (W.sel.size) setTimeout(confirmDelete, 250); else toast('Quedó todo desmarcado'); return true; }
     case 'wa-selnone': W.sel = new Set(); renderWa(); return true;
     case 'wa-dupsel': W.sel = new Set(); W.dup.forEach(g => g.slice(1).forEach(p => { const f = W.byPath.get(p); if (f && !isProt(f)) W.sel.add(p); })); renderWa(); return true;
