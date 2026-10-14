@@ -1910,7 +1910,7 @@ async function checkUpdate() {
 }
 function updateSheet(r, cur) {
   openSheet(`<h3>Hay una versión nueva de Crika</h3>
-    <p class="sub">Tenés la versión ${cur} y ya está lista la ${r.code}. Se descarga y se instala encima de la actual, <b>sin desinstalar nada</b>: tus datos se conservan.</p>
+    <p class="sub">Hay una actualización lista. Se descarga y se instala encima de la actual, <b>sin desinstalar nada</b>: tus datos se conservan.</p>
     <div class="sheet-actions"><button class="btn btn-ghost" data-action="close">Más tarde</button><button class="btn btn-primary" data-action="upd-go" data-u="${esc(r.url)}">Actualizar ahora</button></div>`);
 }
 async function updateGo(url) {
@@ -1951,7 +1951,7 @@ if (NAT) {
       <li><span>Tocá <b>Analizar mi teléfono</b> y dale el permiso.</span></li>
       <li><span>Crika mide el espacio, encuentra repetidos, archivos pesados y fotos viejas de la cámara.</span></li>
       <li><span>Elegís <b>Limpieza masiva</b> (todo junto) o <b>Uno a uno</b> (marcás vos) y confirmás: se borra del teléfono.</span></li></ol></div>`;
-  $('#howNote').textContent = (NAT.versionCode ? 'Crika versión ' + NAT.versionCode() + '. ' : '') + 'Crika no lee tus chats: trabaja con los archivos que se guardan en tu teléfono. No puede saber de qué grupo viene cada archivo, qué mensajes están sin leer, ni si una foto ya está en Google Fotos (eso lo verifica Google Fotos con “Liberar espacio”).';
+  $('#howNote').textContent = 'Crika no lee tus chats: trabaja con los archivos que se guardan en tu teléfono. No puede saber de qué grupo viene cada archivo, qué mensajes están sin leer, ni si una foto ya está en Google Fotos (eso lo verifica Google Fotos con “Liberar espacio”).';
 }
 
 
